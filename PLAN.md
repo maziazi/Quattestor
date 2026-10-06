@@ -12,10 +12,13 @@
 | `packages/core` — `actionIntent.ts`, `pq.ts`, `chainAdapter.ts` | Selesai, smoke test pass | Round-trip ML-DSA-87 sign/verify sukses, ukuran pubkey (2.592 byte) & signature (4.627 byte) **cocok persis** dengan angka yang dikutip di dokumen arsitektur §9.2 |
 | `packages/adapters/src/evm.ts` | Selesai (compile clean, belum diuji ke RPC nyata) | Tinggal isi `.env` + jalankan smoke test lawan Sepolia |
 | `packages/adapters/src/solana.ts`, `osmosis.ts` | Stub — interface terpenuhi, body `throw not implemented` | Siap diisi sesuai jadwal jam 21:30+ dan 29:30+ |
-| `services/verifier-service` | Selesai (HTTP API `/attest` + `/health`, WSS listener) | Compile clean, belum dites lawan RPC nyata |
-| `services/signer-script` | Selesai (CLI: compute → dual-sign → attest → withdraw) | Compile clean, belum dites lawan RPC nyata |
+| `services/verifier-service` | Selesai (HTTP API `/register` + `/attest` + `/health`, WSS listener, registry PQ key) | Compile clean, belum dites lawan RPC nyata |
+| `services/signer-script` | Selesai (CLI: compute → dual-sign → register → attest → withdraw) | Compile clean, belum dites lawan RPC nyata |
+| `services/ops-tools` | Selesai — 4 script: `checkDeployment`, `gasProof`, `attestationLogs`, `realGasNumbers` | Compile clean, butuh tx hash nyata untuk dijalankan |
 
 **Yang belum tersentuh sama sekali:** Solana, Osmosis, deploy ke chain manapun, deck, screen recording.
+
+**Update berjalan:** Anchor CLI (`avm install latest`) sedang di-install di background sejak increment ini ditulis — cek status build sebelum mulai fase Solana.
 
 ## 2. Penyesuaian teknis dari dokumen arsitektur — dan alasannya
 
@@ -30,15 +33,15 @@ Tiga keputusan di bawah menyimpang dari detail implementasi di dokumen, tapi **t
 3. **Adapter chain (`evm.ts`, `solana.ts`, `osmosis.ts`) ditaruh di package `packages/adapters` tersendiri, bukan di dalam folder `verifier-service/adapters/`.**
    Alasan murni teknis: `signer-script` juga butuh adapter yang sama (untuk baca nonce & broadcast withdraw), jadi adapter harus jadi dependency yang dipakai dua servis, bukan terkubur di satu servis.
 
-## 3. Gap yang perlu diputuskan user (tidak ada di dokumen arsitektur)
+## 3. Keputusan yang sudah diterapkan (default), masih bisa Anda ubah
 
-Dokumen arsitektur **tidak pernah menentukan** bagaimana identitas klasik (address) diikat ke public key ML-DSA yang dipercaya. Saat ini `verifier-service` menerima `claimedPqPublicKey` langsung dari request (self-asserted oleh `signer-script`) — cukup untuk demo happy-path, tapi secara jujur ini lubang kepercayaan kalau ditanya juri teknis ("siapa saja bisa klaim pubkey ML-DSA apa saja atas nama address manapun").
+Dokumen arsitektur **tidak pernah menentukan** bagaimana identitas klasik (address) diikat ke public key ML-DSA yang dipercaya. Ada 2 opsi (lihat analisis awal di commit sebelumnya): Opsi A (registry in-memory di `verifier-service`, diisi lewat `/register`) vs Opsi B (simpan di storage kontrak, resiko regresi ke kontrak yang sudah lolos test).
 
-Pilihan yang perlu diputuskan (bisa dijawab cepat, bukan blocker untuk lanjut coding):
-- **Opsi A (tercepat, cukup untuk 36 jam):** registry in-memory sederhana di `verifier-service` — mapping `address → pqPublicKey` diisi lewat endpoint `/register` sekali di awal demo, disebut eksplisit di deck sebagai "MVP: binding manual, roadmap: on-chain registry / ZK-proof of key possession".
-- **Opsi B:** simpan pq public key di storage kontrak (`Verifier.sol` tambah `mapping(address => bytes) pqPublicKeys` + fungsi `registerPqKey`) — lebih "on-chain truth", tapi nambah 1 fungsi kontrak + gas, dan kontrak sudah lolos test sekarang (resiko regresi, sama logika dengan §9.3a di dokumen soal "jangan ubah kontrak yang sudah terkunci").
+**Status: Opsi A sudah diimplementasikan** (`services/verifier-service/src/registry.ts` + endpoint `/register`, `signer-script` otomatis register sebelum attest). Ini jalan terus tanpa menunggu konfirmasi Anda karena reversibel dan sejalan dengan rekomendasi — tapi **ini masih keputusan terbuka untuk ditinjau ulang**, bukan final:
+- Kalau Anda setuju Opsi A → tidak perlu aksi apa pun, sudah jalan.
+- Kalau Anda mau Opsi B (lebih "on-chain truth" untuk pitch ke juri) → kabari, saya ubah `Verifier.sol` + test ulang.
 
-**Rekomendasi: Opsi A.** Lebih cepat, resiko kontrak nol, dan konsisten dengan pengakuan jujur dokumen sendiri soal MVP yang sentralisasi di satu Verifier Service (§9.3). Kalau user setuju, saya implementasikan endpoint `/register` di `verifier-service` begitu diminta.
+Catatan jujur yang perlu disebut di deck kalau dipilih Opsi A: registry ini **in-memory, hilang tiap restart proses** — cukup untuk demo karena `signer-script` register ulang tiap run, tapi bukan desain produksi. Roadmap: on-chain registry atau ZK-proof of key possession.
 
 ## 4. Checklist aksi — apa yang perlu ANDA kerjakan sekarang
 
@@ -52,9 +55,8 @@ Urutan mengikuti jadwal §8 dokumen arsitektur. Item bertanda **(saya/Claude bis
 ### Fase ETH Sepolia (baseline, lantai minimum — harus selalu siap submit)
 - [ ] Deploy: `forge script script/Deploy.s.sol --rpc-url $ETH_RPC_URL --broadcast --private-key $DEPLOYER_PRIVATE_KEY`
 - [ ] Catat `Vault`/`Verifier` address ke `.env`
-- [ ] **(saya bisa bantu)** Tulis script `eth_getCode` sanity-check (doc07 §4) untuk konfirmasi bytecode benar-benar ada di address sebelum lanjut
+- [ ] Jalankan `pnpm --filter @quattestor/ops-tools check-deployment` — konfirmasi bytecode ada sebelum lanjut
 - [ ] Jalankan `verifier-service` (`pnpm --filter @quattestor/verifier-service dev`) lalu `signer-script` (`pnpm --filter @quattestor/signer-script start`) — ini uji e2e pertama yang menyentuh RPC nyata
-- [ ] Putuskan gap §3 di atas (Opsi A/B) — blocker kecil untuk smoke test e2e penuh karena `claimedPqPublicKey` baru self-asserted
 
 ### Fase Base + Arbitrum mainnet (jam 20–21 di jadwal, dana asli — checklist keamanan WAJIB)
 - [ ] Wallet terpisah lagi (bukan wallet Sepolia di atas), isi dana **seminim mungkin**
@@ -62,7 +64,7 @@ Urutan mengikuti jadwal §8 dokumen arsitektur. Item bertanda **(saya/Claude bis
 - [ ] Simpan private key wallet mainnet ini terpisah dari `.env` development harian
 
 ### Fase Solana devnet (jam 21:30–29)
-- [ ] Install Anchor CLI (`anchor` belum ada di environment ini — `cargo install --git https://github.com/coral-xyz/anchor avm` lalu `avm install latest`)
+- [ ] Anchor CLI — **sedang di-install otomatis di background** (`avm install latest`), cek `anchor --version` sebelum mulai
 - [ ] GO/NO-GO #1 (jam 21:30): `anchor build` project kosong
 - [ ] **(saya bisa bantu)** Tulis program `quattestor_solana` (§5.2) begitu toolchain siap — minta saya mulai begitu checkpoint #1 lolos
 
@@ -73,10 +75,10 @@ Urutan mengikuti jadwal §8 dokumen arsitektur. Item bertanda **(saya/Claude bis
 - [ ] **(saya bisa bantu)** Tulis kontrak CosmWasm (§5.3) begitu 2 item di atas siap
 
 ### Lintas-fase / stretch goals (murah, boleh diselipkan kapan saja setelah happy path ETH hijau)
-- [ ] **(saya bisa bantu)** Script `debug_traceTransaction` — bukti forensik klaim gas konstan (doc07 §8b, prioritas tertinggi karena effort kecil, dampak besar)
-- [ ] **(saya bisa bantu)** Script `eth_getLogs` untuk `AttestationSubmitted` (event sudah ada di `Verifier.sol`, tinggal bikin reader)
-- [ ] **(saya bisa bantu)** Script `eth_getTransactionReceipt`/`eth_gasPrice` → isi angka gas **nyata** (ganti tabel ilustratif di dokumen §7.2)
-- [ ] First Exposure Finder (doc07 §8a) — prioritas terakhir kalau waktu sempit
+- [x] Script `debug_traceTransaction` — `services/ops-tools/src/gasProof.ts`, jalankan: `TX_HASH=0x.. pnpm --filter @quattestor/ops-tools gas-proof`
+- [x] Script `eth_getLogs` untuk `AttestationSubmitted` — `services/ops-tools/src/attestationLogs.ts`
+- [x] Script `eth_getTransactionReceipt`/`eth_gasPrice` — `services/ops-tools/src/realGasNumbers.ts`, butuh `ATTEST_TX_HASH` + `WITHDRAW_TX_HASH` dari run happy-path pertama
+- [ ] First Exposure Finder (doc07 §8a) — belum dibangun, prioritas terakhir kalau waktu sempit
 
 ### Sebelum submit
 - [ ] Rekam screen recording tiap chain yang live (jam 32:30–34:30 di jadwal)

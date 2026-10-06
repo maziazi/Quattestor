@@ -6,6 +6,7 @@ import {
   pqMessage,
   pqVerify,
 } from "@quattestor/core";
+import type { PqKeyRegistry } from "./registry.js";
 
 /**
  * Chain-agnostic core: steps B/C/D of the general flow (architecture doc
@@ -23,15 +24,6 @@ export interface DualSignature {
 export interface AttestRequest {
   intent: ActionIntentParams;
   signatures: DualSignature;
-  /**
-   * MVP gap, flagged honestly rather than assumed: the architecture doc
-   * does not specify how a classical identity is bound to a trusted ML-DSA
-   * public key (on-chain registry? off-chain allowlist?). Until that's
-   * decided (see PLAN.md), the caller self-asserts the pubkey here -- same
-   * trust boundary as the rest of the MVP (single centralized Verifier
-   * Service, see architecture doc §9.3).
-   */
-  claimedPqPublicKey: Uint8Array;
 }
 
 export class AttestationRejected extends Error {}
@@ -41,6 +33,7 @@ export class Orchestrator {
     private readonly adapter: ChainAdapter,
     /** operator's chain-specific signing key, passed through to the adapter */
     private readonly operatorKey: unknown,
+    private readonly pqKeyRegistry: PqKeyRegistry,
   ) {}
 
   async processAttestation(req: AttestRequest): Promise<string> {
@@ -53,7 +46,12 @@ export class Orchestrator {
     );
     if (!classicalOk) throw new AttestationRejected("classical signature invalid");
 
-    const pqOk = pqVerify(req.signatures.pqSignature, pqMessage(actionHash), req.claimedPqPublicKey);
+    const trustedPqKey = this.pqKeyRegistry.get(req.signatures.claimedIdentity);
+    if (!trustedPqKey) {
+      throw new AttestationRejected("no registered ML-DSA key for this identity -- call /register first");
+    }
+
+    const pqOk = pqVerify(req.signatures.pqSignature, pqMessage(actionHash), trustedPqKey);
     if (!pqOk) throw new AttestationRejected("ML-DSA signature invalid");
 
     if (await this.adapter.state.isAttested(actionHash)) {

@@ -1,6 +1,7 @@
 import { createServer, type IncomingMessage } from "node:http";
 import { createEvmAdapter } from "@quattestor/adapters";
 import { AttestationRejected, Orchestrator } from "./orchestrator.js";
+import { createInMemoryPqKeyRegistry } from "./registry.js";
 import { subscribeLogs } from "./wss.js";
 
 function hexToBytes(hex: string): Uint8Array {
@@ -35,12 +36,26 @@ const adapter = createEvmAdapter({
   verifierAddress: requireEnv("VERIFIER_ADDRESS"),
 });
 
-const orchestrator = new Orchestrator(adapter, requireEnv("OPERATOR_PRIVATE_KEY"));
+const pqKeyRegistry = createInMemoryPqKeyRegistry();
+const orchestrator = new Orchestrator(adapter, requireEnv("OPERATOR_PRIVATE_KEY"), pqKeyRegistry);
 
 const server = createServer(async (req, res) => {
   if (req.method === "GET" && req.url === "/health") {
     res.writeHead(200, { "content-type": "application/json" });
     res.end(JSON.stringify({ ok: true }));
+    return;
+  }
+
+  if (req.method === "POST" && req.url === "/register") {
+    try {
+      const body = (await readJsonBody(req)) as any;
+      pqKeyRegistry.register(body.address, hexToBytes(body.pqPublicKey));
+      res.writeHead(200, { "content-type": "application/json" });
+      res.end(JSON.stringify({ registered: body.address }));
+    } catch (err) {
+      res.writeHead(400, { "content-type": "application/json" });
+      res.end(JSON.stringify({ error: (err as Error).message }));
+    }
     return;
   }
 
@@ -60,7 +75,6 @@ const server = createServer(async (req, res) => {
           pqSignature: hexToBytes(body.signatures.pqSignature),
           claimedIdentity: body.signatures.claimedIdentity,
         },
-        claimedPqPublicKey: hexToBytes(body.claimedPqPublicKey),
       });
       res.writeHead(200, { "content-type": "application/json" });
       res.end(JSON.stringify({ txHash }));

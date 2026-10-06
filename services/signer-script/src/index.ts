@@ -46,6 +46,12 @@ async function main() {
   const classicalSignature = await wallet.signMessage(actionHashBytes(actionHash));
   const pqSignature = pqSign(pqMessage(actionHash), pq.secretKey);
 
+  await fetch(`${verifierServiceUrl}/register`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ address: wallet.address, pqPublicKey: toHex(pq.publicKey) }),
+  });
+
   const res = await fetch(`${verifierServiceUrl}/attest`, {
     method: "POST",
     headers: { "content-type": "application/json" },
@@ -62,7 +68,6 @@ async function main() {
         pqSignature: toHex(pqSignature),
         claimedIdentity: wallet.address,
       },
-      claimedPqPublicKey: toHex(pq.publicKey),
     }),
   });
 
