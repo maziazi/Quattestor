@@ -1,214 +1,578 @@
 <!doctype html>
-<html lang="id">
+<html lang="en">
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Quattestor — Post-Quantum Attestation Layer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
   :root {
-    --bg: #0b0e14;
-    --panel: #121722;
-    --border: #232b3a;
-    --text: #e6e9ef;
-    --muted: #8b95a7;
-    --accent: #7c9cff;
-    --ok: #4ade80;
-    --bad: #f87171;
+    --white: #ffffff;
+    --ink: #17121f;
+    --ink-soft: #4a4357;
+    --muted: #8a8296;
+    --purple: #8025DF;
+    --purple-deep: #5c0fb0;
+    --purple-dim: #a569ea;
+    --tint: #f7f2fd;
+    --tint-2: #efe4fb;
+    --border: #e6def1;
+    --code-bg: #15101c;
+    --code-border: #2c2238;
+    --ok: #1fae6b;
+    --bad: #e24a4a;
   }
   * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
   body {
     margin: 0;
-    background: var(--bg);
-    color: var(--text);
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-    line-height: 1.55;
+    background: var(--white);
+    color: var(--ink);
+    font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    -webkit-font-smoothing: antialiased;
   }
-  main {
-    max-width: 760px;
-    margin: 0 auto;
-    padding: 48px 20px 80px;
+  h1, h2, h3, .wordmark {
+    font-family: "Space Grotesk", "Inter", sans-serif;
+    letter-spacing: -0.015em;
   }
-  h1 {
-    font-size: 1.9rem;
-    margin: 0 0 8px;
+  code, .mono {
+    font-family: "JetBrains Mono", "SF Mono", Menlo, monospace;
   }
-  .tagline {
-    color: var(--muted);
+
+  a { color: var(--purple-deep); }
+
+  .shell { max-width: 880px; margin: 0 auto; padding: 0 24px; }
+
+  /* ---------- top bar ---------- */
+  header.topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 28px 0 0;
+  }
+  .wordmark {
     font-size: 1.05rem;
-    margin: 0 0 32px;
+    font-weight: 700;
+    color: var(--ink);
+    display: flex;
+    align-items: center;
+    gap: 8px;
   }
-  section {
-    background: var(--panel);
+  .wordmark .dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--purple);
+    box-shadow: 0 0 0 4px var(--tint-2);
+  }
+  .badge {
+    font-size: 0.72rem;
+    font-weight: 500;
+    color: var(--ink-soft);
     border: 1px solid var(--border);
-    border-radius: 12px;
-    padding: 24px;
-    margin-bottom: 24px;
+    padding: 6px 12px;
+    border-radius: 100px;
+    background: var(--tint);
   }
-  section h2 {
-    font-size: 1.1rem;
-    margin: 0 0 14px;
-    color: var(--accent);
-  }
-  .video-wrap {
+
+  /* ---------- hero ---------- */
+  .hero {
     position: relative;
-    width: 100%;
+    padding: 72px 0 36px;
+    overflow: hidden;
+  }
+  .hero::before {
+    content: "";
+    position: absolute;
+    top: -220px; right: -220px;
+    width: 460px; height: 460px;
+    border-radius: 50%;
+    background: radial-gradient(circle at 40% 40%, var(--purple) 0%, transparent 70%);
+    opacity: 0.16;
+    pointer-events: none;
+  }
+  .eyebrow {
+    font-size: 0.78rem;
+    font-weight: 600;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--purple-deep);
+    margin: 0 0 18px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .eyebrow .rule { width: 22px; height: 2px; background: var(--purple); display: inline-block; }
+
+  .hero h1 {
+    font-size: clamp(2.1rem, 5vw, 3.1rem);
+    line-height: 1.12;
+    font-weight: 700;
+    margin: 0 0 20px;
+    max-width: 15ch;
+  }
+  .hero h1 em {
+    font-style: normal;
+    color: var(--purple-deep);
+  }
+  .hero p.lede {
+    font-size: 1.08rem;
+    line-height: 1.65;
+    color: var(--ink-soft);
+    max-width: 62ch;
+    margin: 0;
+  }
+  .hero p.lede strong { color: var(--ink); font-weight: 600; }
+
+  .cta-row { display: flex; gap: 12px; margin-top: 30px; flex-wrap: wrap; }
+  .btn-primary, .btn-secondary {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 13px 24px;
+    border-radius: 10px;
+    font-weight: 600;
+    font-size: 0.92rem;
+    text-decoration: none;
+    font-family: "Inter", sans-serif;
+    transition: all 0.15s ease;
+  }
+  .btn-primary { background: var(--purple); color: #fff; }
+  .btn-primary:hover { background: var(--purple-deep); }
+  .btn-secondary { background: var(--white); color: var(--ink); border: 1.5px solid var(--border); }
+  .btn-secondary:hover { border-color: var(--purple-dim); color: var(--purple-deep); }
+
+  /* ---------- video ---------- */
+  .video-section { padding: 28px 0 8px; }
+  .video-frame {
+    position: relative;
+    border-radius: 20px;
+    padding: 3px;
+    background: linear-gradient(135deg, var(--purple) 0%, var(--tint-2) 55%, var(--purple) 100%);
+  }
+  .video-inner {
     aspect-ratio: 16 / 9;
-    background: #000;
-    border-radius: 8px;
+    background: var(--code-bg);
+    border-radius: 17px;
     overflow: hidden;
     display: flex;
     align-items: center;
     justify-content: center;
-    color: var(--muted);
-    font-size: 0.9rem;
+    position: relative;
+  }
+  .video-inner video { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .video-placeholder {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 14px;
+    color: #cfc4e6;
+  }
+  .play-ring {
+    width: 58px; height: 58px;
+    border-radius: 50%;
+    border: 1.5px solid rgba(165, 105, 234, 0.55);
+    display: flex; align-items: center; justify-content: center;
+  }
+  .play-ring::after {
+    content: "";
+    border-style: solid;
+    border-width: 9px 0 9px 14px;
+    border-color: transparent transparent transparent #cfc4e6;
+    margin-left: 3px;
+  }
+  .video-placeholder span { font-size: 0.85rem; color: #8f80ab; }
+  .video-caption {
     text-align: center;
-  }
-  video {
-    width: 100%;
-    height: 100%;
-    display: block;
-  }
-  label {
-    display: block;
-    font-size: 0.85rem;
+    font-size: 0.82rem;
     color: var(--muted);
-    margin-bottom: 6px;
+    margin: 14px 0 0;
+  }
+
+  /* ---------- stat strip ---------- */
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1px;
+    background: var(--border);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    overflow: hidden;
+    margin: 56px 0;
+  }
+  .stat {
+    background: var(--white);
+    padding: 22px 20px;
+  }
+  .stat .n {
+    font-family: "Space Grotesk", sans-serif;
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--purple-deep);
+    line-height: 1.1;
+  }
+  .stat .l {
+    font-size: 0.8rem;
+    color: var(--muted);
+    margin-top: 4px;
+  }
+
+  /* ---------- section heading ---------- */
+  .section-head { margin: 0 0 8px; }
+  .section-head h2 {
+    font-size: 1.4rem;
+    font-weight: 700;
+    margin: 0 0 8px;
+  }
+  .section-head p {
+    color: var(--ink-soft);
+    font-size: 0.96rem;
+    line-height: 1.6;
+    margin: 0 0 28px;
+    max-width: 66ch;
+  }
+
+  /* ---------- verify console ---------- */
+  .console {
+    background: var(--code-bg);
+    border: 1px solid var(--code-border);
+    border-radius: 16px;
+    padding: 24px;
+    margin-bottom: 72px;
+  }
+  .console-top {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 18px;
+  }
+  .console-top .d { width: 10px; height: 10px; border-radius: 50%; }
+  .console-top .d1 { background: #e24a4a; }
+  .console-top .d2 { background: #e3b341; }
+  .console-top .d3 { background: #1fae6b; }
+  .console-top span {
+    margin-left: 8px;
+    color: #8f80ab;
+    font-size: 0.78rem;
+  }
+  .field { margin-bottom: 14px; }
+  .field label {
+    display: block;
+    font-size: 0.72rem;
+    color: #8f80ab;
+    margin-bottom: 7px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
   }
   select, input {
     width: 100%;
-    background: #0d1117;
-    border: 1px solid var(--border);
-    color: var(--text);
-    padding: 10px 12px;
-    border-radius: 8px;
-    font-family: "SF Mono", Menlo, monospace;
-    font-size: 0.9rem;
-    margin-bottom: 14px;
+    background: #1f1829;
+    border: 1px solid var(--code-border);
+    color: #f1ecfa;
+    padding: 11px 13px;
+    border-radius: 9px;
+    font-size: 0.86rem;
+    font-family: "JetBrains Mono", monospace;
   }
+  select:focus, input:focus { outline: 1px solid var(--purple-dim); }
   button {
-    background: var(--accent);
-    color: #0b0e14;
+    background: var(--purple);
+    color: #fff;
     border: none;
-    padding: 11px 20px;
-    border-radius: 8px;
+    padding: 12px 22px;
+    border-radius: 9px;
     font-weight: 600;
+    font-size: 0.9rem;
     cursor: pointer;
-    font-size: 0.95rem;
+    font-family: "Inter", sans-serif;
+    margin-top: 4px;
+    transition: background 0.15s ease;
   }
-  button:disabled { opacity: 0.6; cursor: wait; }
+  button:hover { background: var(--purple-deep); }
+  button:disabled { opacity: 0.55; cursor: wait; }
+
   #result {
-    margin-top: 16px;
-    padding: 14px 16px;
-    border-radius: 8px;
-    font-family: "SF Mono", Menlo, monospace;
-    font-size: 0.88rem;
+    margin-top: 18px;
+    padding: 15px 16px;
+    border-radius: 9px;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 0.82rem;
+    line-height: 1.6;
     white-space: pre-wrap;
     word-break: break-all;
     display: none;
   }
-  #result.ok { background: rgba(74, 222, 128, 0.1); border: 1px solid var(--ok); color: var(--ok); display: block; }
-  #result.bad { background: rgba(248, 113, 113, 0.1); border: 1px solid var(--bad); color: var(--bad); display: block; }
-  #result.pending { background: rgba(139, 149, 167, 0.1); border: 1px solid var(--border); color: var(--muted); display: block; }
-  .links a {
-    color: var(--accent);
+  #result.ok { background: rgba(31, 174, 107, 0.12); border: 1px solid rgba(31, 174, 107, 0.4); color: #4fe3a1; display: block; }
+  #result.bad { background: rgba(226, 74, 74, 0.1); border: 1px solid rgba(226, 74, 74, 0.35); color: #f08a8a; display: block; }
+  #result.pending { background: rgba(165, 105, 234, 0.1); border: 1px solid rgba(165, 105, 234, 0.3); color: #cfb8f0; display: block; }
+
+  #statusBadge {
+    display: none;
+    align-items: center;
+    gap: 10px;
+    font-family: "Space Grotesk", sans-serif;
+    font-weight: 700;
+    font-size: 1.05rem;
+    margin-top: 18px;
+    padding: 14px 16px;
+    border-radius: 10px;
+  }
+  #statusBadge.ok { display: flex; background: rgba(31, 174, 107, 0.14); color: #2fd089; border: 1px solid rgba(31, 174, 107, 0.4); }
+  #statusBadge.bad { display: flex; background: rgba(226, 74, 74, 0.12); color: #f08a8a; border: 1px solid rgba(226, 74, 74, 0.35); }
+  .console-note {
+    font-size: 0.78rem;
+    color: #8f80ab;
+    margin-top: 16px;
+    line-height: 1.6;
+  }
+
+  /* ---------- links ---------- */
+  .linkgrid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+    margin-bottom: 70px;
+  }
+  .linkcard {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 13px 16px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
     text-decoration: none;
-    margin-right: 16px;
+    color: var(--ink-soft);
+    font-size: 0.84rem;
+    font-weight: 500;
+    transition: border-color 0.15s ease, background 0.15s ease;
   }
-  .links a:hover { text-decoration: underline; }
-  .hint {
-    font-size: 0.8rem;
+  .linkcard:hover { border-color: var(--purple-dim); background: var(--tint); color: var(--ink); }
+  .linkcard .arrow { color: var(--purple); font-size: 0.9rem; }
+  .linkgrid-label {
+    font-size: 0.78rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
     color: var(--muted);
-    margin-top: 10px;
+    margin: 0 0 14px;
   }
+
   footer {
+    border-top: 1px solid var(--border);
+    padding: 26px 0 50px;
     text-align: center;
     color: var(--muted);
     font-size: 0.8rem;
-    margin-top: 40px;
+  }
+
+  @media (max-width: 620px) {
+    .stats { grid-template-columns: 1fr; }
+    .linkgrid { grid-template-columns: 1fr; }
   }
 </style>
 </head>
 <body>
-<main>
-  <h1>Quattestor</h1>
-  <p class="tagline">Lapisan atestasi tahan-kuantum untuk withdrawal lintas chain — wallet apa pun jadi rentan Shor's algorithm sejak transaksi keluar pertama; Quattestor menambahkan gerbang tanda tangan ganda (classical + ML-DSA) sebelum dana bisa ditarik, di EVM maupun non-EVM, tanpa mengubah logic inti per chain.</p>
+<div class="shell">
 
-  <section>
-    <h2>Demo</h2>
-    <div class="video-wrap" id="videoWrap">
-      Video demo akan ditampilkan di sini
-    </div>
-  </section>
+  <header class="topbar">
+    <div class="wordmark"><span class="dot"></span>Quattestor</div>
+    <div class="badge">TOKEN2049 Origins × NOWNodes</div>
+  </header>
 
-  <section>
-    <h2>Verifikasi langsung — isAttested(actionHash)</h2>
-    <p class="hint" style="margin-top:0;margin-bottom:14px;">
-      Baca langsung dari kontrak <code>Verifier.sol</code> yang live di testnet, lewat RPC publik (bukan NOWNodes — API key tidak pernah dikirim ke browser). Ganti actionHash untuk coba sendiri; nilai default di bawah adalah actionHash nyata dari transaksi atestasi sungguhan.
+  <section class="hero">
+    <p class="eyebrow"><span class="rule"></span>Post-Quantum Attestation Layer</p>
+    <h1>Quattestor</h1>
+    <p class="lede">
+      Every wallet becomes exposed to Shor's algorithm the moment it sends its first transaction — <strong>Quattestor gates every withdrawal behind a second, quantum-resistant signature (ML-DSA)</strong>, across EVM and non-EVM chains, with zero changes to each chain's core logic.
     </p>
-    <label for="network">Network</label>
-    <select id="network">
-      <option value="sepolia">Ethereum Sepolia</option>
-      <option value="base">Base Sepolia</option>
-    </select>
-    <label for="actionHash">actionHash (bytes32)</label>
-    <input id="actionHash" value="0x130dfa5202ebdedb36e5e881ea285e7a8664cd7fd9478949710a3b7a470ec138" />
-    <button id="verifyBtn">Verify on-chain</button>
-    <div id="result"></div>
-  </section>
-
-  <section>
-    <h2>Link</h2>
-    <div class="links">
-      <a href="https://github.com/maziazi/Quattestor" target="_blank" rel="noopener">GitHub repo</a>
-      <a href="https://sepolia.etherscan.io/address/0x7C8b17C04271170989Ad56aEa272F8b3B0a9dDAC" target="_blank" rel="noopener">Verifier di Etherscan (Sepolia)</a>
-      <a href="https://sepolia.basescan.org/address/0x7C8b17C04271170989Ad56aEa272F8b3B0a9dDAC" target="_blank" rel="noopener">Verifier di Basescan (Base Sepolia)</a>
-      <a href="https://sepolia.etherscan.io/address/0xf1Ee7C94d0bEEd107A1e7A8E9BA924BAbB8D830f" target="_blank" rel="noopener">Vault di Etherscan (Sepolia)</a>
+    <div class="cta-row">
+      <a href="#verify" class="btn-primary">Live Demo ↓</a>
+      <a href="https://github.com/maziazi/Quattestor" target="_blank" rel="noopener" class="btn-secondary">Source Code</a>
     </div>
   </section>
 
-  <footer>Dibangun untuk TOKEN2049 Origins x NOWNodes Hackathon — Oktober 2026</footer>
-</main>
+  <section class="video-section">
+    <div class="video-frame">
+      <div class="video-inner">
+        <!-- Replace this placeholder with: <video controls src="demo.mp4"></video> -->
+        <div class="video-placeholder">
+          <div class="play-ring"></div>
+          <span>Demo recording — coming shortly</span>
+        </div>
+      </div>
+    </div>
+    <p class="video-caption">Live walkthrough: dual-signature withdrawal across Ethereum Sepolia, Base Sepolia and Solana devnet.</p>
+  </section>
+
+  <div class="stats">
+    <div class="stat"><div class="n">3 chains live</div><div class="l">EVM + Solana, one adapter interface, zero core logic changes</div></div>
+    <div class="stat"><div class="n">ML-DSA-87</div><div class="l">NIST post-quantum signature standard</div></div>
+    <div class="stat"><div class="n">52,273 gas</div><div class="l">identical attestation cost, Sepolia &amp; Base</div></div>
+  </div>
+
+  <section id="verify">
+    <div class="section-head">
+      <h2>Verify it yourself</h2>
+      <p>This reads attestation state straight from the live contract/program on each chain — Ethereum &amp; Base via <code>Verifier.sol</code>'s <code>isAttested()</code>, Solana via the on-chain attestation account — through public RPC endpoints, never NOWNodes, so no API key ever touches this page. Switch networks to try each chain; every default hash is a real attestation from a real transaction.</p>
+    </div>
+
+    <div class="console">
+      <div class="console-top">
+        <span class="d d1"></span><span class="d d2"></span><span class="d d3"></span>
+        <span>on-chain read · public RPC</span>
+      </div>
+
+      <div class="field">
+        <label for="network">Network</label>
+        <select id="network">
+          <option value="sepolia">Ethereum Sepolia</option>
+          <option value="base">Base Sepolia</option>
+          <option value="solana">Solana Devnet</option>
+        </select>
+      </div>
+
+      <div class="field">
+        <label for="actionHash">actionHash (bytes32)</label>
+        <input id="actionHash" value="0x130dfa5202ebdedb36e5e881ea285e7a8664cd7fd9478949710a3b7a470ec138" />
+      </div>
+      <p class="console-note" style="margin-top:-6px;margin-bottom:10px;">Switching network swaps in that chain's own example hash automatically.</p>
+
+      <button id="verifyBtn">Check attestation</button>
+      <div id="statusBadge"></div>
+      <div id="result"></div>
+      <p class="console-note">No wallet connection, no signature, no gas — this is a read-only <code>eth_call</code> executed directly in your browser.</p>
+    </div>
+  </section>
+
+  <p class="linkgrid-label">Contracts &amp; explorers</p>
+  <div class="linkgrid">
+    <a class="linkcard" href="https://sepolia.etherscan.io/address/0x7C8b17C04271170989Ad56aEa272F8b3B0a9dDAC" target="_blank" rel="noopener">Verifier on Etherscan <span class="arrow">→</span></a>
+    <a class="linkcard" href="https://sepolia.basescan.org/address/0x7C8b17C04271170989Ad56aEa272F8b3B0a9dDAC" target="_blank" rel="noopener">Verifier on Basescan <span class="arrow">→</span></a>
+    <a class="linkcard" href="https://sepolia.etherscan.io/address/0xf1Ee7C94d0bEEd107A1e7A8E9BA924BAbB8D830f" target="_blank" rel="noopener">Vault on Etherscan <span class="arrow">→</span></a>
+    <a class="linkcard" href="https://solscan.io/account/8AS1r7wzeTamJwJ6R8P3hrySqbitHXEnkrwRwobykZcY?cluster=devnet" target="_blank" rel="noopener">Program on Solscan (Devnet) <span class="arrow">→</span></a>
+  </div>
+
+  <footer>Built for the TOKEN2049 Origins × NOWNodes Hackathon — October 2026</footer>
+</div>
 
 <script src="https://cdn.jsdelivr.net/npm/ethers@6.13.4/dist/ethers.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@solana/web3.js@1.99.0/lib/index.iife.min.js"></script>
 <script>
   const VERIFIER_ADDRESS = "0x7C8b17C04271170989Ad56aEa272F8b3B0a9dDAC";
   const ABI = ["function isAttested(bytes32 actionHash) view returns (bool)"];
+  const SOLANA_PROGRAM_ID = "8AS1r7wzeTamJwJ6R8P3hrySqbitHXEnkrwRwobykZcY";
 
   const RPCS = {
     sepolia: "https://ethereum-sepolia-rpc.publicnode.com",
     base: "https://sepolia.base.org",
+    solana: "https://api.devnet.solana.com",
+  };
+
+  const NETWORK_LABELS = {
+    sepolia: "Ethereum Sepolia",
+    base: "Base Sepolia",
+    solana: "Solana Devnet",
+  };
+
+  // Each network keeps its own real example hash -- formats differ (EVM
+  // Solidity-ABI keccak vs Solana's raw-bytes keccak, see
+  // packages/core/src/actionIntent.ts vs computeSolanaActionHash), so a
+  // hash from one chain is never valid on another.
+  const EXAMPLE_HASH = {
+    sepolia: "0x130dfa5202ebdedb36e5e881ea285e7a8664cd7fd9478949710a3b7a470ec138",
+    base: "0xc5860ed132dcaac184f46debd595fa5dfce3749dc98ff5f78abdc2226c9ab8a9",
+    solana: "0x20c35113dab1977995cbf8acd5e2d002cd7c758b590d01cb56a0a5f325c08c5c",
   };
 
   const btn = document.getElementById("verifyBtn");
   const result = document.getElementById("result");
+  const badge = document.getElementById("statusBadge");
+  const networkSelect = document.getElementById("network");
+  const hashInput = document.getElementById("actionHash");
+
+  networkSelect.addEventListener("change", () => {
+    hashInput.value = EXAMPLE_HASH[networkSelect.value];
+  });
+
+  async function verifyEvm(network, actionHash) {
+    const provider = new ethers.JsonRpcProvider(RPCS[network]);
+    const contract = new ethers.Contract(VERIFIER_ADDRESS, ABI, provider);
+    const attested = await contract.isAttested(actionHash);
+    return {
+      attested,
+      lines: [
+        `network      : ${NETWORK_LABELS[network]}`,
+        `verifier     : ${VERIFIER_ADDRESS}`,
+        `actionHash   : ${actionHash}`,
+        `isAttested() : ${attested}`,
+      ],
+    };
+  }
+
+  async function verifySolana(actionHash) {
+    const { Connection, PublicKey } = solanaWeb3;
+    const connection = new Connection(RPCS.solana, "confirmed");
+    const programId = new PublicKey(SOLANA_PROGRAM_ID);
+    const actionHashBytes = Buffer_from_hex(actionHash);
+    const [attestationPda] = PublicKey.findProgramAddressSync(
+      [new TextEncoder().encode("attestation"), actionHashBytes],
+      programId,
+    );
+    const account = await connection.getAccountInfo(attestationPda);
+    const attested = !!account && account.data[8 + 32] === 1;
+    return {
+      attested,
+      lines: [
+        `network      : Solana Devnet`,
+        `program      : ${SOLANA_PROGRAM_ID}`,
+        `attestation  : ${attestationPda.toBase58()}`,
+        `actionHash   : ${actionHash}`,
+        `isAttested() : ${attested}`,
+      ],
+    };
+  }
+
+  // Minimal hex -> bytes without relying on Node's Buffer in-browser.
+  function Buffer_from_hex(hex) {
+    const clean = hex.replace(/^0x/, "");
+    const bytes = new Uint8Array(clean.length / 2);
+    for (let i = 0; i < bytes.length; i++) bytes[i] = parseInt(clean.substr(i * 2, 2), 16);
+    return bytes;
+  }
 
   btn.addEventListener("click", async () => {
-    const network = document.getElementById("network").value;
-    const actionHash = document.getElementById("actionHash").value.trim();
+    const network = networkSelect.value;
+    const actionHash = hashInput.value.trim();
 
+    btn.disabled = true;
+    badge.className = "";
+    badge.textContent = "";
     result.className = "pending";
-    result.textContent = "Mengirim eth_call ke RPC publik...";
+    result.textContent = network === "solana"
+      ? "Deriving attestation PDA and reading account on devnet..."
+      : "Sending eth_call to public RPC...";
 
     try {
       if (!/^0x[0-9a-fA-F]{64}$/.test(actionHash)) {
-        throw new Error("actionHash harus bytes32 hex (0x + 64 karakter hex)");
+        throw new Error("actionHash must be a 32-byte hex value (0x + 64 hex chars)");
       }
-      const provider = new ethers.JsonRpcProvider(RPCS[network]);
-      const contract = new ethers.Contract(VERIFIER_ADDRESS, ABI, provider);
-      const attested = await contract.isAttested(actionHash);
+
+      const { attested, lines } = network === "solana"
+        ? await verifySolana(actionHash)
+        : await verifyEvm(network, actionHash);
+
+      badge.className = attested ? "ok" : "bad";
+      badge.textContent = attested ? "✅ Valid attestation" : "❌ Not found";
 
       result.className = attested ? "ok" : "bad";
-      result.textContent =
-        `Network: ${network === "sepolia" ? "Ethereum Sepolia" : "Base Sepolia"}\n` +
-        `Verifier: ${VERIFIER_ADDRESS}\n` +
-        `actionHash: ${actionHash}\n` +
-        `isAttested(): ${attested}\n` +
-        (attested
-          ? "=> Attestation ini benar-benar tercatat on-chain."
-          : "=> Belum pernah diattest di contract ini pada network ini.");
+      result.textContent = lines.join("\n");
     } catch (err) {
+      badge.className = "bad";
+      badge.textContent = "⚠ Error";
       result.className = "bad";
       result.textContent = "Error: " + (err && err.message ? err.message : String(err));
+    } finally {
+      btn.disabled = false;
     }
   });
 </script>
