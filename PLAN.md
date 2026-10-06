@@ -147,10 +147,9 @@ Urutan mengikuti jadwal §8 dokumen arsitektur. Item bertanda **(saya/Claude bis
 - [x] Adapter `packages/adapters/src/cardano.ts` ditulis lengkap via Lucid Evolution
 - [x] Fungsi bootstrap vault UTXO — `cardano-bootstrap-vault` script, lihat §3c
 - [x] **Header auth NOWNodes Blockfrost-compatible terkonfirmasi: `api-key`, bukan `project_id`** — ditemukan lewat panggilan nyata (`project_id` dari Blockfrost provider bawaan Lucid ditolak: "Unknown API_key"). Fix: `createNowNodesBlockfrostProvider()` di `cardano.ts` (patch instance method `fetch` milik `Blockfrost`, bukan reimplementasi interface `Provider` dari nol).
-- [x] Wallet auto-generate pertama (`cardano-generate-wallet`) sukses jadi tes konektivitas live pertama ke endpoint Cardano, dan yang membuktikan temuan header di atas — **lalu diganti** per keputusan user (bikin wallet sendiri lewat Eternl/Nami/Lace, bukan auto-generate). Kunci lama dibiarkan di `.env` sebagai komentar fallback, tidak terfunded.
-- [x] Kode diupdate (`selectWalletFromSecret`) supaya terima **private key bech32 ATAU seed phrase 12/24 kata** — wallet app umum (Eternl/Nami/Lace) expose seed phrase, bukan raw key, jadi ini wajib didukung begitu user pakai wallet sendiri. Plus script baru `cardano-derive-address` untuk menurunkan `CARDANO_TRUSTED_OPERATOR_PKH` dari secret yang di-paste user, tanpa saya perlu melihat secret-nya.
-- [ ] **Menunggu Anda:** paste private key/seed phrase wallet Anda sendiri ke `CARDANO_OPERATOR_SKEY`/`CARDANO_USER_SKEY` di `.env` (langsung ke file, bukan chat), lalu jalankan `cardano-derive-address` untuk isi `CARDANO_TRUSTED_OPERATOR_PKH`
-- [ ] **Isi dana ADA asli** ke address Operator & User (mainnet sungguhan, checklist keamanan dana asli berlaku)
+- [x] Wallet Operator+User via `cardano-generate-wallet` (sempat dipertimbangkan ganti ke wallet app Eternl/Nami/Lace, lalu **diputuskan tetap pakai yang digenerate** — pola sama dengan Solana yang juga pindah dari Phantom ke `solana-keygen` karena UI export key lebih merepotkan). Wallet ini sudah live-verified (generasi inilah yang menemukan bug header `api-key` vs `project_id` di atas).
+- [x] Kode tetap mendukung **private key bech32 ATAU seed phrase 12/24 kata** (`selectWalletFromSecret`) kalau nanti mau pindah ke wallet app — tidak hangus meski tidak dipakai sekarang. Plus script `cardano-derive-address` untuk kasus itu.
+- [ ] **Isi dana ADA asli** ke address Operator (`addr1vx8l66l...`) & User (`addr1v864swj6...`, butuh paling banyak) — mainnet sungguhan, checklist keamanan dana asli berlaku. Lihat `.env` untuk address lengkap.
 - [ ] Jalankan `cardano-bootstrap-vault` begitu User terisi dana
 - [ ] GO/NO-GO e2e mainnet nyata — menunggu dana di atas
 
