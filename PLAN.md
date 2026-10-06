@@ -2,6 +2,12 @@
 
 > Ditulis 6 Okt 2026, ~14:12 WIB — hackathon mulai jam 12:00 (hour 0), jadi kita di **hour ~2 dari 36**. Masih di window baseline ETH Sepolia (jam 0–20) sesuai jadwal di dokumen arsitektur (`11 - DOKUMEN FINAL`). Dokumen ini pelengkap, bukan pengganti — rujukan detail teknis tetap dokumen arsitektur di Obsidian.
 
+> **Update — temuan kritis soal host NOWNodes Solana/Osmosis**, dicek via probe HTTP langsung (metode sama yang dulu dipakai konfirmasi Base Sepolia tidak ada) + dokumentasi resmi:
+> - **Solana: cuma mainnet (`sol.nownodes.io`) dan testnet (`sol-testnet.nownodes.io`) yang ada.** Devnet **tidak ditemukan** di NOWNodes (10+ pola subdomain dicoba, semua 404; dokumentasi resmi NOWNodes juga cuma menyebut mainnet). Target arsitektur yang menyebut "Solana devnet" **kemungkinan harus direvisi ke testnet**.
+> - **Osmosis: cuma mainnet (`osmo.nownodes.io`, `osmo-tendermint.nownodes.io`, `osmo-grpc.nownodes.io`) yang terkonfirmasi ada.** Testnet **tidak ditemukan sama sekali** — 15+ pola subdomain dicoba (termasuk pakai chain-id asli `osmo-test-5`), semua 404, dan dokumentasi resmi NOWNodes cuma mendaftarkan mainnet. **Ini kategori temuan yang sama persis dengan kasus Base Sepolia (diklaim ada, ternyata tidak)** — kemungkinan besar Osmosis testnet **tidak didukung NOWNodes sama sekali**.
+> - **Keterbatasan pengecekan ini:** saya tidak punya akses login ke dashboard NOWNodes Anda (itu butuh kredensial akun) — jadi ini hasil probe publik + dokumentasi, bukan hasil cek dashboard langsung. Dashboard kadang menampilkan opsi environment tambahan setelah API key dibuat (disebutkan di riset sebelumnya) — **cek dashboard Anda sendiri untuk konfirmasi final**, terutama untuk Osmosis sebelum keputusan pivot diambil.
+> - **Implikasi:** kalau Osmosis testnet benar-benar tidak ada, opsi yang sama dengan Base/Arbitrum berlaku — pivot ke mainnet (butuh dana asli + checklist keamanan §4) atau cari testnet Cosmos SDK lain yang didukung. Solana cukup ganti target ke testnet (tidak butuh dana asli, cuma ganti `SOLANA_RPC_URL` ke `sol-testnet.nownodes.io`, 0 baris kode berubah — sama seperti filosofi "ganti endpoint" di seluruh proyek ini).
+
 ## 1. Status: sudah dibangun & tervalidasi
 
 | Komponen | Status | Bukti |
