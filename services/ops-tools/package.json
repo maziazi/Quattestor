@@ -8,7 +8,8 @@
     "check-deployment": "node --experimental-strip-types src/checkDeployment.ts",
     "gas-proof": "node --experimental-strip-types src/gasProof.ts",
     "attestation-logs": "node --experimental-strip-types src/attestationLogs.ts",
-    "real-gas-numbers": "node --experimental-strip-types src/realGasNumbers.ts"
+    "real-gas-numbers": "node --experimental-strip-types src/realGasNumbers.ts",
+    "cardano-bootstrap-vault": "node --experimental-strip-types src/cardanoBootstrapVault.ts"
   },
   "dependencies": {
     "@quattestor/adapters": "workspace:*",

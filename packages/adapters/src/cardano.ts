@@ -218,3 +218,41 @@ export async function createCardanoAdapter(cfg: CardanoAdapterConfig): Promise<C
     },
   };
 }
+
+/**
+ * Creates the first Vault UTxO for a given owner -- the eUTXO equivalent of
+ * EVM's `Deploy.s.sol` / Solana's `initialize_vault` instruction. Nothing
+ * else in this adapter can do this: `state`/`broadcast` only read or spend
+ * an existing Vault UTxO, none of them create one from scratch.
+ *
+ * `ownerSkey` both owns the resulting vault AND pays for this bootstrap tx
+ * -- the vault is funded with `initialLovelace`, withdrawable later via
+ * `broadcast.executeVaultAction` once a matching attestation exists.
+ */
+export async function bootstrapVault(
+  cfg: CardanoAdapterConfig,
+  ownerSkey: string,
+  initialLovelace: bigint,
+): Promise<string> {
+  const provider = new Blockfrost(cfg.rpcUrl, cfg.apiKey);
+  const lucid = await Lucid(provider, cfg.network);
+  const { spendingValidator } = loadScripts(cfg.plutusBlueprintPath, cfg.trustedOperatorPkh);
+  const vaultAddress = validatorToAddress(cfg.network, spendingValidator);
+
+  lucid.selectWallet.fromPrivateKey(ownerSkey);
+  const ownerAddress = await lucid.wallet().address();
+  const ownerPkh = getAddressDetails(ownerAddress).paymentCredential?.hash;
+  if (!ownerPkh) throw new Error("could not resolve payment key hash from Cardano address");
+
+  const tx = await lucid
+    .newTx()
+    .pay.ToAddressWithData(
+      vaultAddress,
+      { kind: "inline", value: encodeVaultDatum(ownerPkh, 0n) },
+      { lovelace: initialLovelace },
+    )
+    .complete();
+
+  const signed = await tx.sign.withWallet().complete();
+  return signed.submit();
+}

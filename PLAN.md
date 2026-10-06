@@ -35,15 +35,15 @@
 | `packages/adapters/src/evm.ts` | Selesai (compile clean, belum diuji ke RPC nyata) | Tinggal isi `.env` + jalankan smoke test lawan Sepolia |
 | `contracts/solana` (program Anchor `quattestor_solana`) | **Selesai & lolos test nyata** | `cargo test` → **4/4 pass** (happy path withdraw, tanpa atestasi, operator tidak sah, replay actionHash basi), via `litesvm` (simulator Rust murni, tanpa validator lokal) |
 | `packages/adapters/src/solana.ts` | Selesai (compile clean, belum diuji ke RPC devnet nyata) | Implementasi penuh: ed25519 verify, baca/tulis state via NOWNodes RPC manual (bukan SDK Anchor client) |
-| `contracts/osmosis/verifier` + `contracts/osmosis/vault` (CosmWasm) | **Selesai & lolos test nyata** | `cargo test` → **8/8 pass** (Verifier 4/4, Vault 4/4 termasuk happy-path withdraw lintas-kontrak sungguhan via `cw-multi-test`) |
-| `packages/adapters/src/osmosis.ts` | Selesai (compile clean, belum diuji ke RPC testnet nyata) | Implementasi penuh via CosmJS — **ada gap desain terbuka**, lihat §3b |
+| `contracts/cardano` (Aiken `vault.ak` + `verifier.ak`) | **Selesai & lolos test nyata** [GANTI OSMOSIS] | `aiken check` → **7/7 pass** (vault 4/4, verifier 3/3); `aiken build` sukses hasilkan `plutus.json` |
+| `packages/adapters/src/cardano.ts` | Selesai (compile clean, belum diuji ke RPC mainnet nyata) | Implementasi penuh via Lucid Evolution, termasuk `bootstrapVault()` — **ada 2 gap desain terbuka**, lihat §3c |
 | `services/verifier-service` | Selesai (HTTP API `/register` + `/attest` + `/health`, WSS listener, registry PQ key) | Compile clean, belum dites lawan RPC nyata |
 | `services/signer-script` | Selesai (CLI: compute → dual-sign → register → attest → withdraw) | Compile clean, belum dites lawan RPC nyata |
-| `services/ops-tools` | Selesai — 4 script: `checkDeployment`, `gasProof`, `attestationLogs`, `realGasNumbers` | Compile clean, butuh tx hash nyata untuk dijalankan |
+| `services/ops-tools` | Selesai — 5 script: `checkDeployment`, `gasProof`, `attestationLogs`, `realGasNumbers`, `cardanoBootstrapVault` | Compile clean, butuh tx hash/wallet nyata untuk dijalankan |
 
-**Yang belum tersentuh sama sekali:** deploy ke chain manapun (ETH/Base/Arbitrum/Solana/Osmosis — semua masih lokal), deck, screen recording.
+**Yang belum tersentuh sama sekali:** deploy ke chain manapun (semua masih lokal), deck, screen recording.
 
-**Update besar:** Solana dan Osmosis **tidak lagi stub** — kontrak/program keduanya ditulis penuh dan lolos test nyata (12/12 gabungan: 4 Solana + 8 Osmosis), dikerjakan sambil menunggu `.env`. Toolchain Anchor (`anchor-cli 1.2.0`), Solana CLI (`solana-cli 4.1.2`), dan CosmWasm (`cargo-generate`, `cosmwasm-check`, target `wasm32-unknown-unknown`) semua terinstall & terverifikasi. Detail masalah toolchain yang ditemukan+diperbaiki ada di §1b.
+**Update besar (lihat notice PIVOT di atas untuk detail):** Osmosis dihapus dari repo, diganti Cardano. Solana dan Cardano **bukan stub** — kontrak/program keduanya ditulis penuh dan lolos test nyata (11/11 gabungan: 4 Solana + 7 Cardano). Toolchain Anchor (`anchor-cli 1.2.0`), Solana CLI (`solana-cli 4.1.2`), dan Aiken (`1.1.24`) semua terinstall & terverifikasi. Detail masalah toolchain yang ditemukan+diperbaiki ada di §1b.
 
 Catatan: installer Solana menambahkan `export PATH=".../solana/install/active_release/bin:$PATH"` ke `~/.profile`, `~/.zprofile`, `~/.bash_profile` secara otomatis (perilaku standar installer-nya) — buka terminal baru sebelum pakai `solana`/`anchor` langsung tanpa export manual.
 
@@ -93,7 +93,7 @@ Catatan jujur yang perlu disebut di deck kalau dipilih Opsi A: registry ini **in
 
 Tidak blocking untuk lanjut kerja — flagged supaya jelas saat nanti menjawab pertanyaan juri soal "kenapa Cardano adapter-nya beda bentuk".
 
-**Gap tambahan, belum ada kode sama sekali:** tidak ada fungsi "bootstrap" untuk membuat UTXO Vault pertama kali (EVM punya `Deploy.s.sol`, Solana punya instruksi `initialize_vault` — Cardano belum punya setara). Seseorang harus manual kirim ADA ke vault address dengan `VaultDatum{owner, counter: 0}` sebagai inline datum sebelum demo pertama bisa jalan. Dicatat sebagai pekerjaan tersisa, bukan diabaikan diam-diam.
+**[SELESAI] Gap bootstrap vault UTXO** — `bootstrapVault()` di `packages/adapters/src/cardano.ts` + CLI `services/ops-tools/src/cardanoBootstrapVault.ts` (`pnpm --filter @quattestor/ops-tools cardano-bootstrap-vault`). Mengirim ADA ke vault address dengan `VaultDatum{owner, counter: 0}` sebagai inline datum. Compile bersih, belum diuji ke mainnet nyata (sama seperti seluruh adapter Cardano lainnya).
 
 ## 4. Checklist aksi — apa yang perlu ANDA kerjakan sekarang
 
@@ -126,7 +126,7 @@ Urutan mengikuti jadwal §8 dokumen arsitektur. Item bertanda **(saya/Claude bis
 - [x] Toolchain Aiken 1.1.24 terinstall & terverifikasi (`brew install aiken-lang/tap/aiken`)
 - [x] Validator `vault.ak` + `verifier.ak` ditulis lengkap, **lolos test nyata**: `aiken check` 7/7 pass, `aiken build` sukses menghasilkan `plutus.json`
 - [x] Adapter `packages/adapters/src/cardano.ts` ditulis lengkap via Lucid Evolution
-- [ ] **Belum ada fungsi bootstrap vault UTXO** — lihat §3c, perlu ditulis manual atau helper script sebelum demo pertama
+- [x] Fungsi bootstrap vault UTXO — `cardano-bootstrap-vault` script, lihat §3c
 - [ ] **Wallet mainnet Cardano terpisah, isi dana ADA asli seminim mungkin** — ini mainnet sungguhan, checklist keamanan dana asli berlaku
 - [ ] Verifikasi header auth NOWNodes Blockfrost-compatible (`project_id` vs `api-key`, lihat `.env.example`) — baru bisa dicek dengan panggilan nyata
 - [ ] GO/NO-GO e2e mainnet nyata — menunggu 3 item di atas
