@@ -18,7 +18,9 @@
 
 **Yang belum tersentuh sama sekali:** Solana, Osmosis, deploy ke chain manapun, deck, screen recording.
 
-**Update:** Anchor CLI sudah terinstall & terverifikasi (`anchor-cli 1.2.0`, lewat `avm`). Fase Solana (jam 21:30+) tidak lagi diblokir toolchain — tinggal GO/NO-GO #1 (`anchor build` project kosong) begitu waktunya tiba.
+**Update:** Anchor CLI (`anchor-cli 1.2.0`) dan Solana CLI (`solana-cli 4.1.2`, ter-install otomatis sebagai dependency Anchor) sudah terverifikasi. Fase Solana (jam 21:30+) tidak lagi diblokir toolchain — tinggal GO/NO-GO #1 (`anchor build` project kosong) begitu waktunya tiba.
+
+Catatan: installer Solana menambahkan `export PATH=".../solana/install/active_release/bin:$PATH"` ke `~/.profile`, `~/.zprofile`, `~/.bash_profile` secara otomatis (perilaku standar installer-nya) — buka terminal baru sebelum pakai `solana`/`anchor` langsung tanpa export manual.
 
 ## 2. Penyesuaian teknis dari dokumen arsitektur — dan alasannya
 
