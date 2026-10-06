@@ -1,0 +1,216 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Quattestor — Post-Quantum Attestation Layer</title>
+<style>
+  :root {
+    --bg: #0b0e14;
+    --panel: #121722;
+    --border: #232b3a;
+    --text: #e6e9ef;
+    --muted: #8b95a7;
+    --accent: #7c9cff;
+    --ok: #4ade80;
+    --bad: #f87171;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    line-height: 1.55;
+  }
+  main {
+    max-width: 760px;
+    margin: 0 auto;
+    padding: 48px 20px 80px;
+  }
+  h1 {
+    font-size: 1.9rem;
+    margin: 0 0 8px;
+  }
+  .tagline {
+    color: var(--muted);
+    font-size: 1.05rem;
+    margin: 0 0 32px;
+  }
+  section {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 24px;
+    margin-bottom: 24px;
+  }
+  section h2 {
+    font-size: 1.1rem;
+    margin: 0 0 14px;
+    color: var(--accent);
+  }
+  .video-wrap {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    background: #000;
+    border-radius: 8px;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--muted);
+    font-size: 0.9rem;
+    text-align: center;
+  }
+  video {
+    width: 100%;
+    height: 100%;
+    display: block;
+  }
+  label {
+    display: block;
+    font-size: 0.85rem;
+    color: var(--muted);
+    margin-bottom: 6px;
+  }
+  select, input {
+    width: 100%;
+    background: #0d1117;
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 10px 12px;
+    border-radius: 8px;
+    font-family: "SF Mono", Menlo, monospace;
+    font-size: 0.9rem;
+    margin-bottom: 14px;
+  }
+  button {
+    background: var(--accent);
+    color: #0b0e14;
+    border: none;
+    padding: 11px 20px;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+    font-size: 0.95rem;
+  }
+  button:disabled { opacity: 0.6; cursor: wait; }
+  #result {
+    margin-top: 16px;
+    padding: 14px 16px;
+    border-radius: 8px;
+    font-family: "SF Mono", Menlo, monospace;
+    font-size: 0.88rem;
+    white-space: pre-wrap;
+    word-break: break-all;
+    display: none;
+  }
+  #result.ok { background: rgba(74, 222, 128, 0.1); border: 1px solid var(--ok); color: var(--ok); display: block; }
+  #result.bad { background: rgba(248, 113, 113, 0.1); border: 1px solid var(--bad); color: var(--bad); display: block; }
+  #result.pending { background: rgba(139, 149, 167, 0.1); border: 1px solid var(--border); color: var(--muted); display: block; }
+  .links a {
+    color: var(--accent);
+    text-decoration: none;
+    margin-right: 16px;
+  }
+  .links a:hover { text-decoration: underline; }
+  .hint {
+    font-size: 0.8rem;
+    color: var(--muted);
+    margin-top: 10px;
+  }
+  footer {
+    text-align: center;
+    color: var(--muted);
+    font-size: 0.8rem;
+    margin-top: 40px;
+  }
+</style>
+</head>
+<body>
+<main>
+  <h1>Quattestor</h1>
+  <p class="tagline">Lapisan atestasi tahan-kuantum untuk withdrawal lintas chain — wallet apa pun jadi rentan Shor's algorithm sejak transaksi keluar pertama; Quattestor menambahkan gerbang tanda tangan ganda (classical + ML-DSA) sebelum dana bisa ditarik, di EVM maupun non-EVM, tanpa mengubah logic inti per chain.</p>
+
+  <section>
+    <h2>Demo</h2>
+    <div class="video-wrap" id="videoWrap">
+      Video demo akan ditampilkan di sini
+    </div>
+  </section>
+
+  <section>
+    <h2>Verifikasi langsung — isAttested(actionHash)</h2>
+    <p class="hint" style="margin-top:0;margin-bottom:14px;">
+      Baca langsung dari kontrak <code>Verifier.sol</code> yang live di testnet, lewat RPC publik (bukan NOWNodes — API key tidak pernah dikirim ke browser). Ganti actionHash untuk coba sendiri; nilai default di bawah adalah actionHash nyata dari transaksi atestasi sungguhan.
+    </p>
+    <label for="network">Network</label>
+    <select id="network">
+      <option value="sepolia">Ethereum Sepolia</option>
+      <option value="base">Base Sepolia</option>
+    </select>
+    <label for="actionHash">actionHash (bytes32)</label>
+    <input id="actionHash" value="0x130dfa5202ebdedb36e5e881ea285e7a8664cd7fd9478949710a3b7a470ec138" />
+    <button id="verifyBtn">Verify on-chain</button>
+    <div id="result"></div>
+  </section>
+
+  <section>
+    <h2>Link</h2>
+    <div class="links">
+      <a href="https://github.com/maziazi/Quattestor" target="_blank" rel="noopener">GitHub repo</a>
+      <a href="https://sepolia.etherscan.io/address/0x7C8b17C04271170989Ad56aEa272F8b3B0a9dDAC" target="_blank" rel="noopener">Verifier di Etherscan (Sepolia)</a>
+      <a href="https://sepolia.basescan.org/address/0x7C8b17C04271170989Ad56aEa272F8b3B0a9dDAC" target="_blank" rel="noopener">Verifier di Basescan (Base Sepolia)</a>
+      <a href="https://sepolia.etherscan.io/address/0xf1Ee7C94d0bEEd107A1e7A8E9BA924BAbB8D830f" target="_blank" rel="noopener">Vault di Etherscan (Sepolia)</a>
+    </div>
+  </section>
+
+  <footer>Dibangun untuk TOKEN2049 Origins x NOWNodes Hackathon — Oktober 2026</footer>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/ethers@6.13.4/dist/ethers.umd.min.js"></script>
+<script>
+  const VERIFIER_ADDRESS = "0x7C8b17C04271170989Ad56aEa272F8b3B0a9dDAC";
+  const ABI = ["function isAttested(bytes32 actionHash) view returns (bool)"];
+
+  const RPCS = {
+    sepolia: "https://ethereum-sepolia-rpc.publicnode.com",
+    base: "https://sepolia.base.org",
+  };
+
+  const btn = document.getElementById("verifyBtn");
+  const result = document.getElementById("result");
+
+  btn.addEventListener("click", async () => {
+    const network = document.getElementById("network").value;
+    const actionHash = document.getElementById("actionHash").value.trim();
+
+    result.className = "pending";
+    result.textContent = "Mengirim eth_call ke RPC publik...";
+
+    try {
+      if (!/^0x[0-9a-fA-F]{64}$/.test(actionHash)) {
+        throw new Error("actionHash harus bytes32 hex (0x + 64 karakter hex)");
+      }
+      const provider = new ethers.JsonRpcProvider(RPCS[network]);
+      const contract = new ethers.Contract(VERIFIER_ADDRESS, ABI, provider);
+      const attested = await contract.isAttested(actionHash);
+
+      result.className = attested ? "ok" : "bad";
+      result.textContent =
+        `Network: ${network === "sepolia" ? "Ethereum Sepolia" : "Base Sepolia"}\n` +
+        `Verifier: ${VERIFIER_ADDRESS}\n` +
+        `actionHash: ${actionHash}\n` +
+        `isAttested(): ${attested}\n` +
+        (attested
+          ? "=> Attestation ini benar-benar tercatat on-chain."
+          : "=> Belum pernah diattest di contract ini pada network ini.");
+    } catch (err) {
+      result.className = "bad";
+      result.textContent = "Error: " + (err && err.message ? err.message : String(err));
+    }
+  });
+</script>
+</body>
+</html>
