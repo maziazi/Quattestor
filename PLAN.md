@@ -87,7 +87,52 @@ Urutan mengikuti jadwal §8 dokumen arsitektur. Item bertanda **(saya/Claude bis
 - [ ] Rakit deck .ppt/.keynote (bukan Google Slides/Gamma — syarat lomba), embed recording
 - [ ] Submit: GitHub repo + live link + deck, sebelum 23:59 WIB 7 Okt
 
-## 5. Status repo & git
+## 5. Status kode per chain — jujur, bukan "tinggal isi env" untuk semuanya
+
+| Chain | Kode kontrak/program | Kode adapter | Status nyata |
+|---|---|---|---|
+| **Ethereum Sepolia** | `Vault.sol`/`Verifier.sol` — selesai, 6/6 test pass | `packages/adapters/src/evm.ts` — selesai | **Tinggal isi env + deploy.** Ini satu-satunya chain yang betul-betul "tinggal env". |
+| **Base** | **Bytecode identik** dengan Sepolia (klaim inti arsitektur: 0 baris berubah) | **Sama persis** `evm.ts` — cuma config (`rpcUrl`/`vaultAddress`/`verifierAddress`) beda | Kode sudah selesai, tapi **bukan cuma isi env** — tetap harus jalankan ulang `forge script script/Deploy.s.sol` dengan `--rpc-url $BASE_RPC_URL` untuk dapat address Vault/Verifier yang baru (beda dari Sepolia, meski bytecode-nya sama). Plus checklist keamanan mainnet (dana asli) di §4. |
+| **Arbitrum** | Sama seperti Base | Sama seperti Base | Sama seperti Base |
+| **Solana** | **Belum ditulis.** `packages/adapters/src/solana.ts` isinya `throw new Error("not implemented")` | Stub, bukan implementasi | **Bukan cuma isi env — butuh coding penuh**: program Anchor/Rust (`VaultPda`/`AttestationPda`, §5.2 dokumen arsitektur), lalu isi adapter sungguhan. Toolchain (Anchor+Solana CLI) sudah siap, tinggal minta saya mulai. |
+| **Osmosis** | **Belum ditulis.** `packages/adapters/src/osmosis.ts` sama, stub | Stub | **Bukan cuma isi env — butuh coding penuh**: kontrak CosmWasm (§5.3), plus host RPC/gRPC NOWNodes untuk Osmosis testnet belum pernah dicek (beda dari ETH/Base/Arbitrum yang sudah terverifikasi). Toolchain (`cargo-generate`, target `wasm32-unknown-unknown`) belum terinstall. |
+
+**Ringkas:** EVM (ETH/Base/Arbitrum) = 1 basis kode, selesai, tinggal jalankan deploy per chain + isi env. Solana & Osmosis = belum ada satu baris implementasi pun, cuma kerangka interface + toolchain (Solana) yang sudah siap.
+
+## 6. Panduan isi `.env` — per variabel, cara mencarinya
+
+Urutan prioritas: 5 variabel pertama (sampai `USER_PRIVATE_KEY`) adalah **minimum wajib** untuk smoke test ETH Sepolia pertama. Sisanya menyusul sesuai fase.
+
+### Wajib sekarang
+
+| Variabel | Apa ini | Cara mendapatkannya |
+|---|---|---|
+| `NOWNODES_API_KEY` | Token auth NOWNodes, dikirim lewat header `api-key` di tiap request RPC | **Cek dulu** email/Discord panitia TOKEN2049/NOWNodes — partner track kadang kasih key khusus peserta. Kalau tidak ada: daftar gratis di `account.nownodes.io/auth/signup` → pilih plan **Start** (gratis, 100.000 request) → di dashboard klik **"Add a New Key"** → copy key yang muncul. |
+| `ETH_RPC_URL` | Endpoint JSON-RPC Ethereum Sepolia via NOWNodes | Sudah terisi di `.env.example`: `https://eth-sepolia.nownodes.io` — **tidak perlu dicari**, sudah terverifikasi lewat HTTP probe (lihat catatan riset). Tinggal copy. |
+| `CHAIN_ID` | ID numerik jaringan (dipakai di formula `actionHash`, harus sama persis dengan `block.chainid` on-chain) | Angka publik tetap, bukan dicari di dashboard: **Sepolia = `11155111`**, sudah terisi di `.env.example`. |
+| `DEPLOYER_PRIVATE_KEY` | Private key wallet yang mendeploy kontrak (bayar gas deploy) | **Generate baru**, jangan pakai wallet utama. Jalankan: `cast wallet new` (Foundry, sudah terinstall) — ini mencetak `Address` + `Private key` baru secara acak. Simpan private key-nya di sini. |
+| `TRUSTED_OPERATOR_ADDRESS` + `OPERATOR_PRIVATE_KEY` | Wallet "Operator" — yang menandatangani & broadcast atestasi | `cast wallet new` sekali lagi (wallet berbeda dari deployer). Private key → `OPERATOR_PRIVATE_KEY`, address yang tercetak bersamanya → `TRUSTED_OPERATOR_ADDRESS`. **Urutan penting:** ini harus diisi SEBELUM deploy, karena `Deploy.s.sol` membaca `TRUSTED_OPERATOR_ADDRESS` sebagai parameter constructor `Verifier.sol`. |
+| `USER_PRIVATE_KEY` | Wallet "User" — yang melakukan `withdraw()` di demo | `cast wallet new` sekali lagi (wallet ketiga). |
+| *(tanpa nama env, aksi manual)* | Isi ETH Sepolia ke 3 wallet di atas (gas) | Faucet: `https://sepoliafaucet.com`, faucet Alchemy (`sepolia-faucet.pk910.de` atau dashboard Alchemy kalau punya akun), atau faucet Google Cloud Web3. Minta ke alamat `DEPLOYER_PRIVATE_KEY` dan `OPERATOR_PRIVATE_KEY` dulu (butuh gas untuk deploy + submitAttestation); `USER_PRIVATE_KEY` cukup sedikit untuk gas `withdraw()`. |
+
+### Diisi setelah deploy (bukan dicari, tapi hasil command)
+
+| Variabel | Cara mengisi |
+|---|---|
+| `VAULT_ADDRESS`, `VERIFIER_ADDRESS` | Jalankan `forge script script/Deploy.s.sol --rpc-url $ETH_RPC_URL --broadcast --private-key $DEPLOYER_PRIVATE_KEY` — address Vault & Verifier tercetak di output terminal, copy ke sini. Setelah Vault punya address, kirim sedikit ETH ke address itu (`cast send $VAULT_ADDRESS --value 0.01ether --rpc-url $ETH_RPC_URL --private-key $DEPLOYER_PRIVATE_KEY`) supaya ada saldo untuk di-`withdraw()` saat demo. |
+
+### Opsional / fase berikutnya
+
+| Variabel | Catatan |
+|---|---|
+| `ETH_WSS_URL` | **Format belum terverifikasi** (halaman dokumentasi WSS NOWNodes JS-rendered, tidak bisa di-scrape). Cek di dashboard NOWNodes setelah API key dibuat, atau tanya mentor NOWNodes di venue/Discord. Tidak wajib untuk smoke test pertama — endpoint `/attest` jalan lewat HTTP biasa tanpa WSS. |
+| `BASE_RPC_URL`, `ARBITRUM_RPC_URL` | Sudah terisi di `.env.example`, tidak perlu dicari. Dipakai nanti saat fase Base/Arbitrum (ganti `ETH_RPC_URL`/`CHAIN_ID`/`VAULT_ADDRESS`/`VERIFIER_ADDRESS` ke nilai Base/Arbitrum saat deploy ke sana — lihat §6). |
+| `VERIFIER_SERVICE_URL`, `PORT` | Default `http://localhost:8787` sudah benar untuk jalan di satu laptop, tidak perlu diubah. |
+| `AMOUNT_WEI` | Jumlah demo withdraw dalam wei, bebas Anda pilih (contoh default: `1000000000000000` = 0.001 ETH) — harus ≤ saldo yang sudah dikirim ke Vault. |
+
+**Catatan arsitektur penting:** satu `.env` ini mewakili **satu chain EVM pada satu waktu**. Kalau nanti mau jalankan servis lawan Base atau Arbitrum, cara paling sederhana adalah salin `.env` jadi `.env.base`/`.env.arbitrum` dengan `ETH_RPC_URL`→isi `BASE_RPC_URL`, `CHAIN_ID`→`8453`, dan `VAULT_ADDRESS`/`VERIFIER_ADDRESS` hasil deploy di Base — bukan bug, ini konsekuensi langsung dari klaim "0 baris kode berubah, cuma config" yang memang didesain begitu.
+
+## 7. Status repo & git
 
 - Repo lokal: `/Users/maziazi/Coding/hackathon/Quattestor/Code`, branch `main`, remote `origin` → `git@github.com:maziazi/Quattestor.git` (private).
 - Commit pertama ditulis dengan identitas git yang sudah ada di mesin ini (`maziazi`) — **tidak ada co-author atau footer "Generated with Claude"** di commit manapun, sesuai permintaan.
