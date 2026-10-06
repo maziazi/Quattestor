@@ -1,0 +1,13 @@
+{
+  "name": "quattestor",
+  "private": true,
+  "version": "0.1.0",
+  "description": "PQC attestation layer -- off-chain ML-DSA verification, cheap on-chain enforcement, across 5 chains.",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "pnpm -r --filter=./packages/* --filter=./services/* build",
+    "test:evm": "cd contracts/evm && forge test -vv"
+  }
+}
