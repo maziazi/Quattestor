@@ -10,7 +10,8 @@
     "attestation-logs": "tsc -p tsconfig.json && node --env-file=../../.env dist/attestationLogs.js",
     "real-gas-numbers": "tsc -p tsconfig.json && node --env-file=../../.env dist/realGasNumbers.js",
     "cardano-bootstrap-vault": "tsc -p tsconfig.json && node --env-file=../../.env dist/cardanoBootstrapVault.js",
-    "cardano-generate-wallet": "tsc -p tsconfig.json && node --env-file=../../.env dist/cardanoGenerateWallet.js"
+    "cardano-generate-wallet": "tsc -p tsconfig.json && node --env-file=../../.env dist/cardanoGenerateWallet.js",
+    "cardano-derive-address": "tsc -p tsconfig.json && node --env-file=../../.env dist/cardanoDeriveAddress.js"
   },
   "dependencies": {
     "@quattestor/adapters": "workspace:*",

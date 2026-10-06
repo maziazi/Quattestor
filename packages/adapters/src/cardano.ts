@@ -53,9 +53,27 @@ export interface CardanoAdapterConfig {
 }
 
 export interface CardanoOperatorKey {
-  /** bech32 `ed25519_sk...` */
+  /** bech32 `ed25519_sk...` private key, OR a 12/24-word seed phrase --
+   * see `selectWalletFromSecret` below. Wallet apps (Eternl, Nami, Lace)
+   * export seed phrases, not raw keys, so both forms are accepted. */
   privateKey: string;
   recipientAddress: string;
+}
+
+/**
+ * Accepts either a bech32 `ed25519_sk...` private key or a 12/24-word
+ * seed phrase -- the two forms Lucid Evolution's `selectWallet` supports,
+ * and the two forms a real user is likely to have: `cardano-generate-wallet`
+ * produces the former, mainstream wallet apps (Eternl/Nami/Lace) only ever
+ * export the latter.
+ */
+export function selectWalletFromSecret(lucid: Awaited<ReturnType<typeof Lucid>>, secret: string): void {
+  const trimmed = secret.trim();
+  if (trimmed.startsWith("ed25519_sk")) {
+    lucid.selectWallet.fromPrivateKey(trimmed);
+  } else {
+    lucid.selectWallet.fromSeed(trimmed);
+  }
 }
 
 /**
@@ -178,7 +196,7 @@ export async function createCardanoAdapter(cfg: CardanoAdapterConfig): Promise<C
 
       async submitAttestation(actionHash, operatorKey) {
         const { privateKey, recipientAddress } = operatorKey as CardanoOperatorKey;
-        lucid.selectWallet.fromPrivateKey(privateKey);
+        selectWalletFromSecret(lucid, privateKey);
 
         const unit = toUnit(policyId, actionHash.replace(/^0x/, ""));
         const tx = await lucid
@@ -195,8 +213,7 @@ export async function createCardanoAdapter(cfg: CardanoAdapterConfig): Promise<C
 
     broadcast: {
       async executeVaultAction(params: VaultActionParams, userKey) {
-        const privateKey = userKey as string;
-        lucid.selectWallet.fromPrivateKey(privateKey);
+        selectWalletFromSecret(lucid, userKey as string);
         const userAddress = await lucid.wallet().address();
         const ownerPkhHex = getAddressDetails(userAddress).paymentCredential?.hash;
         if (!ownerPkhHex) throw new Error("could not resolve payment key hash from Cardano address");
@@ -247,13 +264,15 @@ export async function createCardanoAdapter(cfg: CardanoAdapterConfig): Promise<C
  * else in this adapter can do this: `state`/`broadcast` only read or spend
  * an existing Vault UTxO, none of them create one from scratch.
  *
- * `ownerSkey` both owns the resulting vault AND pays for this bootstrap tx
- * -- the vault is funded with `initialLovelace`, withdrawable later via
- * `broadcast.executeVaultAction` once a matching attestation exists.
+ * `ownerSecret` (bech32 private key OR seed phrase, see
+ * `selectWalletFromSecret`) both owns the resulting vault AND pays for
+ * this bootstrap tx -- the vault is funded with `initialLovelace`,
+ * withdrawable later via `broadcast.executeVaultAction` once a matching
+ * attestation exists.
  */
 export async function bootstrapVault(
   cfg: CardanoAdapterConfig,
-  ownerSkey: string,
+  ownerSecret: string,
   initialLovelace: bigint,
 ): Promise<string> {
   const provider = createNowNodesBlockfrostProvider(cfg.rpcUrl, cfg.apiKey);
@@ -261,7 +280,7 @@ export async function bootstrapVault(
   const { spendingValidator } = loadScripts(cfg.plutusBlueprintPath, cfg.trustedOperatorPkh);
   const vaultAddress = validatorToAddress(cfg.network, spendingValidator);
 
-  lucid.selectWallet.fromPrivateKey(ownerSkey);
+  selectWalletFromSecret(lucid, ownerSecret);
   const ownerAddress = await lucid.wallet().address();
   const ownerPkh = getAddressDetails(ownerAddress).paymentCredential?.hash;
   if (!ownerPkh) throw new Error("could not resolve payment key hash from Cardano address");

@@ -147,8 +147,10 @@ Urutan mengikuti jadwal §8 dokumen arsitektur. Item bertanda **(saya/Claude bis
 - [x] Adapter `packages/adapters/src/cardano.ts` ditulis lengkap via Lucid Evolution
 - [x] Fungsi bootstrap vault UTXO — `cardano-bootstrap-vault` script, lihat §3c
 - [x] **Header auth NOWNodes Blockfrost-compatible terkonfirmasi: `api-key`, bukan `project_id`** — ditemukan lewat panggilan nyata (`project_id` dari Blockfrost provider bawaan Lucid ditolak: "Unknown API_key"). Fix: `createNowNodesBlockfrostProvider()` di `cardano.ts` (patch instance method `fetch` milik `Blockfrost`, bukan reimplementasi interface `Provider` dari nol).
-- [x] Wallet Operator + User digenerate (`pnpm --filter @quattestor/ops-tools cardano-generate-wallet`, pakai `generatePrivateKey()` Lucid Evolution — ini SEKALIGUS jadi tes konektivitas live pertama ke endpoint Cardano, dan yang membuktikan temuan header di atas) — tersimpan di `.env`
-- [ ] **Isi dana ADA asli** ke address Operator & User (mainnet sungguhan, checklist keamanan dana asli berlaku) — lihat `.env` untuk address lengkap
+- [x] Wallet auto-generate pertama (`cardano-generate-wallet`) sukses jadi tes konektivitas live pertama ke endpoint Cardano, dan yang membuktikan temuan header di atas — **lalu diganti** per keputusan user (bikin wallet sendiri lewat Eternl/Nami/Lace, bukan auto-generate). Kunci lama dibiarkan di `.env` sebagai komentar fallback, tidak terfunded.
+- [x] Kode diupdate (`selectWalletFromSecret`) supaya terima **private key bech32 ATAU seed phrase 12/24 kata** — wallet app umum (Eternl/Nami/Lace) expose seed phrase, bukan raw key, jadi ini wajib didukung begitu user pakai wallet sendiri. Plus script baru `cardano-derive-address` untuk menurunkan `CARDANO_TRUSTED_OPERATOR_PKH` dari secret yang di-paste user, tanpa saya perlu melihat secret-nya.
+- [ ] **Menunggu Anda:** paste private key/seed phrase wallet Anda sendiri ke `CARDANO_OPERATOR_SKEY`/`CARDANO_USER_SKEY` di `.env` (langsung ke file, bukan chat), lalu jalankan `cardano-derive-address` untuk isi `CARDANO_TRUSTED_OPERATOR_PKH`
+- [ ] **Isi dana ADA asli** ke address Operator & User (mainnet sungguhan, checklist keamanan dana asli berlaku)
 - [ ] Jalankan `cardano-bootstrap-vault` begitu User terisi dana
 - [ ] GO/NO-GO e2e mainnet nyata — menunggu dana di atas
 
