@@ -28,22 +28,33 @@ chain/VM -- see `packages/core/src/chainAdapter.ts`.
 ## Repo layout
 
 ```
-contracts/evm/          Foundry: Vault.sol + Verifier.sol (ETH Sepolia / Base / Arbitrum)
+contracts/evm/          Foundry: Vault.sol + Verifier.sol (ETH Sepolia / Base Sepolia)
 contracts/solana/       Anchor program quattestor_solana (VaultPda / AttestationPda)
-contracts/osmosis/      CosmWasm: quattestor-verifier + quattestor-vault
+contracts/cardano/      Aiken: vault.ak (spending validator) + verifier.ak (minting policy)
 packages/core/          actionHash formula, ML-DSA sign/verify, ChainAdapter interface
-packages/adapters/      ChainAdapter implementations: evm.ts, solana.ts, osmosis.ts (all implemented)
+packages/adapters/      ChainAdapter implementations: evm.ts, solana.ts, cardano.ts (all implemented)
 services/verifier-service/   Off-chain orchestrator + HTTP API + NOWNodes WSS listener
 services/signer-script/      CLI: computes actionHash, dual-signs, calls verifier-service, withdraws
 services/ops-tools/          NOWNodes forensic scripts: deploy check, gas proof, logs, real gas numbers
 ```
 
-## Why these 5 chains
+## Why these chains
 
-Ethereum Sepolia, Base, Arbitrum, Solana devnet, Osmosis testnet. Base and
-Arbitrum are deployed to **mainnet** -- NOWNodes has no testnet for either
-(verified directly against their endpoints, not every L2 does). See
-`PLAN.md` for the full risk tradeoff and mitigation checklist.
+**ETH Sepolia + Base Sepolia (L2) + Solana mainnet + Cardano mainnet.**
+Confirmed directly by NOWNodes support for this hackathon's keys (6 Okt
+2026): Base Sepolia is enabled specifically for hackathon keys (not
+publicly documented -- plain HTTP probing alone would have missed it);
+Solana and Cardano are mainnet-only, no devnet/testnet access on this key.
+Arbitrum and Osmosis were dropped from the original 5-chain plan once that
+came back -- see `PLAN.md` for the full history and reasoning.
+
+Cardano's eUTXO model has no persistent account/mapping the way EVM,
+Solana, and Cosmos SDK chains do, so its Vault/Verifier pair is shaped
+differently on purpose: "attestation" is an NFT minted under a policy
+gated to the trusted operator, and the ledger's own one-time-spendable UTXO
+rule gives replay protection for free, without a nonce check. Details and
+the deliberate adaptation of the actionHash formula are documented in
+`contracts/cardano/validators/vault.ak`.
 
 ## Running the tests
 
@@ -52,12 +63,11 @@ cd contracts/evm && forge test -vv          # 6/6 passing: happy path + 4 negati
 
 cd contracts/solana && cargo test            # 4/4 passing, via litesvm (no validator needed)
 
-cd contracts/osmosis/verifier && cargo test  # 4/4 passing
-cd contracts/osmosis/vault && cargo test     # 4/4 passing, via cw-multi-test
+cd contracts/cardano && aiken check          # 7/7 passing (vault 4/4, verifier 3/3)
 ```
 
 ```bash
-# Deploy EVM (same script, only --rpc-url changes across ETH/Base/Arbitrum):
+# Deploy EVM (same script, only --rpc-url changes between ETH Sepolia and Base Sepolia):
 cd contracts/evm
 forge script script/Deploy.s.sol \
   --rpc-url $ETH_RPC_URL --broadcast --private-key $DEPLOYER_PRIVATE_KEY

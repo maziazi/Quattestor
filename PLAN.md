@@ -8,6 +8,22 @@
 > - **Keterbatasan pengecekan ini:** saya tidak punya akses login ke dashboard NOWNodes Anda (itu butuh kredensial akun) — jadi ini hasil probe publik + dokumentasi, bukan hasil cek dashboard langsung. Dashboard kadang menampilkan opsi environment tambahan setelah API key dibuat (disebutkan di riset sebelumnya) — **cek dashboard Anda sendiri untuk konfirmasi final**, terutama untuk Osmosis sebelum keputusan pivot diambil.
 > - **Implikasi:** kalau Osmosis testnet benar-benar tidak ada, opsi yang sama dengan Base/Arbitrum berlaku — pivot ke mainnet (butuh dana asli + checklist keamanan §4) atau cari testnet Cosmos SDK lain yang didukung. Solana cukup ganti target ke testnet (tidak butuh dana asli, cuma ganti `SOLANA_RPC_URL` ke `sol-testnet.nownodes.io`, 0 baris kode berubah — sama seperti filosofi "ganti endpoint" di seluruh proyek ini).
 
+> ## PIVOT SCOPE FINAL (6 Okt 2026, ~16:00 WIB) — jawaban langsung dari NOWNodes, bukan tebakan probe
+>
+> User mendapat balasan langsung dari NOWNodes support (bukan dari saya) yang menggantikan sebagian temuan probe publik di atas, plus keputusan scope baru:
+>
+> | Chain | Sebelumnya | SEKARANG | Sumber |
+> |---|---|---|---|
+> | **Base** | Diasumsikan mainnet (dana asli) | **Base Sepolia TESTNET** — dikonfirmasi NOWNodes aktif khusus untuk key hackathon ini (tidak terlihat dari probe publik biasa) | Jawaban langsung NOWNodes |
+> | **Arbitrum** | Mainnet (dana asli) | **DIBATALKAN** — keputusan user, cukup 1 L2 (Base) | Keputusan user |
+> | **Solana** | Target devnet, lalu testnet (dari probe) | **Mainnet, dikonfirmasi resmi** — NOWNodes eksplisit: "we can't enable Solana devnet for hackathon keys". Testnet ada secara DNS (sol-testnet.nownodes.io, 422) tapi **tidak bisa diakses key hackathon** — pelajaran: host ada bukan berarti key bisa pakai | Jawaban langsung NOWNodes |
+> | **Osmosis** | Testnet tidak ditemukan (probe) | **DIHAPUS** — diganti Cardano | Keputusan user |
+> | **Cardano** | Tidak ada di scope | **DITAMBAHKAN, mainnet** — endpoint Blockfrost-compatible (ada-blockfrost.nownodes.io) dikonfirmasi NOWNodes, address/UTXO/tx lookup jalan | Jawaban langsung NOWNodes + keputusan user |
+>
+> **Scope final: 4 chain — ETH Sepolia, Base Sepolia (L2), Solana mainnet, Cardano mainnet.** Kode Osmosis (contracts/osmosis/, packages/adapters/src/osmosis.ts) **sudah dihapus dari repo** (riwayatnya tetap ada di git log kalau perlu dirujuk). §3b, §4, §5 di bawah sudah diperbarui mengikuti scope ini.
+>
+> **Konsekuensi bagus:** Base tidak lagi butuh dana asli (balik ke testnet) — risiko turun signifikan dibanding rencana sebelumnya.
+
 ## 1. Status: sudah dibangun & tervalidasi
 
 | Komponen | Status | Bukti |
@@ -64,15 +80,20 @@ Dokumen arsitektur **tidak pernah menentukan** bagaimana identitas klasik (addre
 
 Catatan jujur yang perlu disebut di deck kalau dipilih Opsi A: registry ini **in-memory, hilang tiap restart proses** — cukup untuk demo karena `signer-script` register ulang tiap run, tapi bukan desain produksi. Roadmap: on-chain registry atau ZK-proof of key possession.
 
-### 3b. Gap baru: konvensi identitas Osmosis beda dari EVM/Solana — belum direkonsiliasi
+### 3b. [SUPERSEDED] Gap identitas Osmosis — chain ini sudah dihapus dari scope
 
-Ditemukan saat menulis `packages/adapters/src/osmosis.ts`. EVM (`ecrecover`) dan Solana (verify ed25519 langsung) sama-sama mengidentifikasi user lewat key yang **juga** jadi identitas native chain itu. Cosmos SDK beda: address bech32 adalah `RIPEMD160(SHA256(pubkey))` — **tidak bisa dibalik** jadi pubkey. Akibatnya `verifyClassicalSignature` di adapter Osmosis butuh `claimedIdentity` berupa **pubkey base64**, bukan address — satu-satunya adapter yang beda konvensi dari field yang sama di interface `ChainAdapter`.
+~~Ditemukan saat menulis `packages/adapters/src/osmosis.ts`...~~ — tidak relevan lagi, Osmosis dihapus dari scope (lihat notice PIVOT di atas). Dibiarkan di sini sebagai jejak keputusan, bukan dihapus — kalau Osmosis pernah masuk scope lagi di masa depan, masalahnya (address Cosmos SDK tidak bisa dibalik jadi pubkey) masih relevan untuk dicek ulang.
 
-Belum ada keputusan — 2 opsi kalau mau dirapikan (tidak mendesak, Osmosis sendiri belum disentuh NOWNodes-nya):
-- **Biarkan beda** (status sekarang): `signer-script` cabang Osmosis kirim pubkey, bukan address, sebagai `claimedIdentity`. Disebut eksplisit di deck sebagai "detail implementasi per-VM", bukan bug.
-- **Normalisasi**: ubah signature `ChainAdapter.verifyClassicalSignature` supaya terima `claimedIdentity` + `claimedPublicKey?` opsional, dipakai adapter yang butuh (Osmosis), diabaikan yang tidak (EVM/Solana). Nambah 1 field interface, tidak mengubah logic adapter lain.
+### 3c. Gap serupa di Cardano — pola yang sama, chain yang berbeda
 
-Tidak blocking — flagged supaya tidak jadi kejutan saat demo lintas-chain nanti.
+`packages/adapters/src/cardano.ts` punya **2 penyimpangan dari konvensi EVM/Solana**, didokumentasikan langsung di kode (bukan disembunyikan):
+
+1. **`claimedIdentity` harus pubkey hex, bukan address** — sama persis alasan yang dulu berlaku untuk Osmosis (§3b): address Cardano bukan hash yang bisa dibalik jadi pubkey, jadi verifikasi signature classical butuh pubkey mentah.
+2. **`state.submitAttestation`'s `operatorKey` adalah object `{ privateKey, recipientAddress }`, bukan key polos** — ini murni konsekuensi model eUTXO: NFT atestasi yang di-mint harus langsung dikirim ke address User (bukan disimpan di address Operator), supaya User bisa withdraw belakangan **tanpa** butuh Operator tanda tangan ulang. Interface `ChainAdapter` yang sudah ada mengetik parameter ini sebagai `unknown` secara sengaja — jadi ini bukan pelanggaran kontrak TypeScript, cuma konvensi per-chain yang berbeda.
+
+Tidak blocking untuk lanjut kerja — flagged supaya jelas saat nanti menjawab pertanyaan juri soal "kenapa Cardano adapter-nya beda bentuk".
+
+**Gap tambahan, belum ada kode sama sekali:** tidak ada fungsi "bootstrap" untuk membuat UTXO Vault pertama kali (EVM punya `Deploy.s.sol`, Solana punya instruksi `initialize_vault` — Cardano belum punya setara). Seseorang harus manual kirim ADA ke vault address dengan `VaultDatum{owner, counter: 0}` sebagai inline datum sebelum demo pertama bisa jalan. Dicatat sebagai pekerjaan tersisa, bukan diabaikan diam-diam.
 
 ## 4. Checklist aksi — apa yang perlu ANDA kerjakan sekarang
 
@@ -81,7 +102,7 @@ Urutan mengikuti jadwal §8 dokumen arsitektur. Item bertanda **(saya/Claude bis
 ### Segera (blocking semua langkah berikutnya)
 - [ ] **Isi `.env`** dari `.env.example` — minimal `NOWNODES_API_KEY` (daftar di nownodes.io kalau belum punya).
 - [ ] **Buat wallet demo terpisah** (bukan wallet utama) untuk 3 peran: `DEPLOYER_PRIVATE_KEY`, `OPERATOR_PRIVATE_KEY` (+`TRUSTED_OPERATOR_ADDRESS` turunannya), `USER_PRIVATE_KEY`. Isi dengan ETH Sepolia dari faucet (mis. `sepoliafaucet.com` / Alchemy faucet).
-- [ ] **Cek jawaban panitia/NOWNodes** soal testnet tersembunyi Base/Arbitrum (item pending di dokumen §11/§12) — kalau positif, Base/Arbitrum turun ke testnet dan `PLAN.md` + `.env.example` ini direvisi.
+- [x] **Base/Arbitrum/Solana/Osmosis** — sudah ada jawaban langsung NOWNodes, lihat notice PIVOT di atas dokumen. Tidak perlu dicek lagi.
 
 ### Fase ETH Sepolia (baseline, lantai minimum — harus selalu siap submit)
 - [ ] Deploy: `forge script script/Deploy.s.sol --rpc-url $ETH_RPC_URL --broadcast --private-key $DEPLOYER_PRIVATE_KEY`
@@ -89,26 +110,26 @@ Urutan mengikuti jadwal §8 dokumen arsitektur. Item bertanda **(saya/Claude bis
 - [ ] Jalankan `pnpm --filter @quattestor/ops-tools check-deployment` — konfirmasi bytecode ada sebelum lanjut
 - [ ] Jalankan `verifier-service` (`pnpm --filter @quattestor/verifier-service dev`) lalu `signer-script` (`pnpm --filter @quattestor/signer-script start`) — ini uji e2e pertama yang menyentuh RPC nyata
 
-### Fase Base + Arbitrum mainnet (jam 20–21 di jadwal, dana asli — checklist keamanan WAJIB)
-- [ ] Wallet terpisah lagi (bukan wallet Sepolia di atas), isi dana **seminim mungkin**
-- [ ] Deploy dulu → `eth_getCode` lolos → **baru** isi dana ke Vault (urutan ini wajib, jangan dibalik)
-- [ ] Simpan private key wallet mainnet ini terpisah dari `.env` development harian
+### Fase Base Sepolia (testnet terkonfirmasi — TIDAK butuh dana asli lagi)
+- [ ] Deploy ulang kontrak (sama persis, cuma `--rpc-url $BASE_RPC_URL`) → address Vault/Verifier baru, beda dari Sepolia
+- [ ] Jalankan `check-deployment` lagi untuk address Base
+- [ ] Checklist keamanan mainnet di versi lama dokumen ini **tidak lagi berlaku** — testnet, bukan dana asli
 
-### Fase Solana devnet (jam 21:30–29)
+### Fase Solana mainnet (dikonfirmasi resmi NOWNodes — bukan devnet)
 - [x] Anchor CLI + Solana CLI terinstall & terverifikasi
 - [x] GO/NO-GO #1: `anchor build` sukses, menghasilkan `.so` valid
 - [x] Program `quattestor_solana` ditulis lengkap, **GO/NO-GO #2 lolos nyata**: `cargo test` 4/4 pass
-- [ ] Wallet devnet + faucet (`solana airdrop` atau faucet.solana.com) — belum ada
-- [ ] Host RPC NOWNodes untuk Solana devnet — belum dicek ke dashboard, perlu sebelum adapter diuji ke RPC nyata
-- [ ] GO/NO-GO #3 (e2e devnet nyata, lewat `signer-script` + adapter) — menunggu 2 item di atas
+- [ ] **Wallet mainnet terpisah, isi dana SOL asli seminim mungkin** — ini mainnet, bukan devnet, jadi berlaku checklist keamanan dana asli yang sama seperti EVM mainnet (deploy dulu, konfirmasi dulu, baru isi dana)
+- [ ] GO/NO-GO #3 (e2e mainnet nyata, lewat `signer-script` + adapter) — menunggu wallet di atas
 
-### Fase Osmosis testnet (jam 29:30–32:30)
-- [x] `cargo-generate`, `cosmwasm-check`, target `wasm32-unknown-unknown` terinstall & terverifikasi
-- [x] Kontrak `quattestor-verifier` + `quattestor-vault` ditulis lengkap, **GO/NO-GO #2 lolos nyata**: `cargo test` 8/8 pass (termasuk happy-path withdraw lintas-kontrak via `cw-multi-test`)
-- [ ] **Cek dashboard NOWNodes langsung** untuk host RPC/gRPC Osmosis testnet — masih belum dicek, jangan asumsikan (ini persis kesalahan yang terjadi dengan Base Sepolia, lihat doc §11)
-- [ ] Wallet testnet Osmosis + faucet
-- [ ] Putuskan gap identitas §3b (boleh dibiarkan untuk demo, tidak blocking)
-- [ ] GO/NO-GO #3 (e2e testnet nyata) — menunggu 2 item di atas
+### Fase Cardano mainnet (chain baru, ganti Osmosis)
+- [x] Toolchain Aiken 1.1.24 terinstall & terverifikasi (`brew install aiken-lang/tap/aiken`)
+- [x] Validator `vault.ak` + `verifier.ak` ditulis lengkap, **lolos test nyata**: `aiken check` 7/7 pass, `aiken build` sukses menghasilkan `plutus.json`
+- [x] Adapter `packages/adapters/src/cardano.ts` ditulis lengkap via Lucid Evolution
+- [ ] **Belum ada fungsi bootstrap vault UTXO** — lihat §3c, perlu ditulis manual atau helper script sebelum demo pertama
+- [ ] **Wallet mainnet Cardano terpisah, isi dana ADA asli seminim mungkin** — ini mainnet sungguhan, checklist keamanan dana asli berlaku
+- [ ] Verifikasi header auth NOWNodes Blockfrost-compatible (`project_id` vs `api-key`, lihat `.env.example`) — baru bisa dicek dengan panggilan nyata
+- [ ] GO/NO-GO e2e mainnet nyata — menunggu 3 item di atas
 
 ### Lintas-fase / stretch goals (murah, boleh diselipkan kapan saja setelah happy path ETH hijau)
 - [x] Script `debug_traceTransaction` — `services/ops-tools/src/gasProof.ts`, jalankan: `TX_HASH=0x.. pnpm --filter @quattestor/ops-tools gas-proof`
@@ -125,11 +146,12 @@ Urutan mengikuti jadwal §8 dokumen arsitektur. Item bertanda **(saya/Claude bis
 
 | Chain | Kode kontrak/program | Kode adapter | Status nyata |
 |---|---|---|---|
-| **Ethereum Sepolia** | `Vault.sol`/`Verifier.sol` — selesai, 6/6 test pass | `packages/adapters/src/evm.ts` — selesai | **Tinggal isi env + deploy.** Ini satu-satunya chain yang betul-betul "tinggal env". |
-| **Base** | **Bytecode identik** dengan Sepolia (klaim inti arsitektur: 0 baris berubah) | **Sama persis** `evm.ts` — cuma config (`rpcUrl`/`vaultAddress`/`verifierAddress`) beda | Kode sudah selesai, tapi **bukan cuma isi env** — tetap harus jalankan ulang `forge script script/Deploy.s.sol` dengan `--rpc-url $BASE_RPC_URL` untuk dapat address Vault/Verifier yang baru (beda dari Sepolia, meski bytecode-nya sama). Plus checklist keamanan mainnet (dana asli) di §4. |
-| **Arbitrum** | Sama seperti Base | Sama seperti Base | Sama seperti Base |
-| **Solana** | **Selesai, lolos test nyata** — program Anchor `quattestor_solana` (`contracts/solana`), `cargo test` 4/4 pass | **Selesai** — `packages/adapters/src/solana.ts`, ed25519 verify + baca/tulis state manual via NOWNodes RPC | Kode lengkap di kedua sisi (on-chain + off-chain). **Belum diuji ke devnet nyata** — perlu wallet devnet + faucet + host RPC NOWNodes Solana (belum dicek ke dashboard, tapi kemungkinan besar standar `sol.nownodes.io`-style, resiko lebih rendah dari Osmosis). |
-| **Osmosis** | **Selesai, lolos test nyata** — kontrak CosmWasm `quattestor-verifier`+`quattestor-vault` (`contracts/osmosis`), `cargo test` 8/8 pass | **Selesai** — `packages/adapters/src/osmosis.ts` via CosmJS, **dengan 1 gap desain terbuka** (§3b: konvensi pubkey vs address) | Kode lengkap di kedua sisi. **Belum diuji ke testnet nyata** — host RPC/gRPC NOWNodes untuk Osmosis testnet **masih belum pernah dicek ke dashboard** (resiko tertinggi dari 5 chain, sama kategori dengan kasus Base Sepolia yang ternyata tidak ada). |
+| **Ethereum Sepolia** | `Vault.sol`/`Verifier.sol` — selesai, 6/6 test pass | `packages/adapters/src/evm.ts` — selesai | **Tinggal isi env + deploy.** Testnet, tidak butuh dana asli. |
+| **Base Sepolia** | **Bytecode identik** dengan Sepolia (klaim inti arsitektur: 0 baris berubah) | **Sama persis** `evm.ts` — cuma config (`rpcUrl`/`vaultAddress`/`verifierAddress`) beda | Kode selesai. Tetap harus deploy ulang (`--rpc-url $BASE_RPC_URL`) untuk address baru, tapi **testnet dikonfirmasi NOWNodes** — tidak butuh dana asli, checklist keamanan mainnet versi lama sudah tidak berlaku. |
+| **Solana** | **Selesai, lolos test nyata** — program Anchor `quattestor_solana` (`contracts/solana`), `cargo test` 4/4 pass | **Selesai** — `packages/adapters/src/solana.ts`, ed25519 verify + baca/tulis state manual via NOWNodes RPC | Kode lengkap di kedua sisi. **Mainnet sungguhan** (dikonfirmasi NOWNodes, bukan devnet) — berlaku checklist keamanan dana asli. Belum diuji ke RPC nyata. |
+| **Cardano** | **Selesai, lolos test nyata** — Aiken `vault.ak` (spending validator) + `verifier.ak` (minting policy), `aiken check` 7/7 pass, `aiken build` sukses | **Selesai** — `packages/adapters/src/cardano.ts` via Lucid Evolution, **dengan 2 gap desain terbuka** (§3c: pubkey vs address, bentuk `operatorKey` beda) | Kode lengkap di kedua sisi. **Mainnet sungguhan** — berlaku checklist dana asli. Belum diuji ke RPC nyata, belum ada fungsi bootstrap vault UTXO (§3c), dan header auth NOWNodes (`project_id` vs `api-key`) belum terverifikasi. |
+
+**Chain yang dihapus dari scope (lihat notice PIVOT di atas untuk alasan):** Arbitrum (dibatalkan, keputusan user), Osmosis (dihapus, kode sudah di-delete dari repo — riwayatnya di git log commit sebelum pivot ini kalau perlu dirujuk).
 
 **Ringkas, update dari sebelumnya:** Kelimanya sekarang punya kode lengkap di sisi kontrak/program DAN adapter off-chain. EVM (ETH/Base/Arbitrum) sudah diverifikasi penuh termasuk formula gas; Solana & Osmosis sudah lolos test lokal (litesvm / cw-multi-test) tapi **belum ada satu pun yang diuji lawan RPC NOWNodes sungguhan** — itu jadi langkah nyata berikutnya begitu `.env` terisi, bukan lagi "coding dari nol".
 
@@ -160,11 +182,25 @@ Urutan prioritas: 5 variabel pertama (sampai `USER_PRIVATE_KEY`) adalah **minimu
 | Variabel | Catatan |
 |---|---|
 | `ETH_WSS_URL` | **Format belum terverifikasi** (halaman dokumentasi WSS NOWNodes JS-rendered, tidak bisa di-scrape). Cek di dashboard NOWNodes setelah API key dibuat, atau tanya mentor NOWNodes di venue/Discord. Tidak wajib untuk smoke test pertama — endpoint `/attest` jalan lewat HTTP biasa tanpa WSS. |
-| `BASE_RPC_URL`, `ARBITRUM_RPC_URL` | Sudah terisi di `.env.example`, tidak perlu dicari. Dipakai nanti saat fase Base/Arbitrum (ganti `ETH_RPC_URL`/`CHAIN_ID`/`VAULT_ADDRESS`/`VERIFIER_ADDRESS` ke nilai Base/Arbitrum saat deploy ke sana — lihat §6). |
+| `BASE_RPC_URL` | Sudah terisi di `.env.example` (`base-sepolia.nownodes.io`, dikonfirmasi NOWNodes khusus key hackathon). Dipakai saat fase Base (ganti `ETH_RPC_URL`/`CHAIN_ID`/`VAULT_ADDRESS`/`VERIFIER_ADDRESS` ke nilai Base saat deploy ke sana). |
 | `VERIFIER_SERVICE_URL`, `PORT` | Default `http://localhost:8787` sudah benar untuk jalan di satu laptop, tidak perlu diubah. |
 | `AMOUNT_WEI` | Jumlah demo withdraw dalam wei, bebas Anda pilih (contoh default: `1000000000000000` = 0.001 ETH) — harus ≤ saldo yang sudah dikirim ke Vault. |
 
-**Catatan arsitektur penting:** satu `.env` ini mewakili **satu chain EVM pada satu waktu**. Kalau nanti mau jalankan servis lawan Base atau Arbitrum, cara paling sederhana adalah salin `.env` jadi `.env.base`/`.env.arbitrum` dengan `ETH_RPC_URL`→isi `BASE_RPC_URL`, `CHAIN_ID`→`8453`, dan `VAULT_ADDRESS`/`VERIFIER_ADDRESS` hasil deploy di Base — bukan bug, ini konsekuensi langsung dari klaim "0 baris kode berubah, cuma config" yang memang didesain begitu.
+**Catatan arsitektur penting:** satu `.env` ini mewakili **satu chain EVM pada satu waktu**. Kalau nanti mau jalankan servis lawan Base, cara paling sederhana adalah salin `.env` jadi `.env.base` dengan `ETH_RPC_URL`→isi `BASE_RPC_URL`, `CHAIN_ID`→`84532`, dan `VAULT_ADDRESS`/`VERIFIER_ADDRESS` hasil deploy di Base — bukan bug, ini konsekuensi langsung dari klaim "0 baris kode berubah, cuma config" yang memang didesain begitu.
+
+### Solana & Cardano — keduanya mainnet sungguhan, checklist dana asli berlaku
+
+| Variabel | Cara mendapatkannya |
+|---|---|
+| `SOLANA_RPC_URL` | Sudah terisi (`sol.nownodes.io`, dikonfirmasi NOWNodes). |
+| `SOLANA_PROGRAM_ID` | Hasil deploy program Anchor (`anchor deploy` atau `solana program deploy`), belum dijalankan. |
+| `SOLANA_*_SECRET_KEY` | Generate wallet baru: `solana-keygen new --outfile <path>`, isi SOL asli secukupnya (mainnet, bukan faucet). |
+| `CARDANO_RPC_URL` | Sudah terisi (`ada-blockfrost.nownodes.io`, dikonfirmasi NOWNodes). |
+| `CARDANO_TRUSTED_OPERATOR_PKH` | Hex VerificationKeyHash dari wallet Operator Cardano — turunan dari private key, bisa didapat lewat `cardano-cli` atau library Lucid (`getAddressDetails(address).paymentCredential.hash`). |
+| `CARDANO_PLUTUS_BLUEPRINT_PATH` | Sudah terisi (`./contracts/cardano/plutus.json`), dihasilkan `aiken build`, tidak perlu diubah. |
+| `CARDANO_*_SKEY` | Private key bech32 (`ed25519_sk...`) — generate wallet baru via Lucid (`generatePrivateKey()`) atau `cardano-cli`, isi ADA asli secukupnya. |
+
+**Belum ada helper command untuk ini** (beda dari EVM yang punya `cast wallet new`, Solana yang punya `solana-keygen`) — generate wallet Cardano lewat Lucid butuh sedikit script Node sendiri kalau mau cepat; beri tahu saya kalau mau saya buatkan.
 
 ## 7. Status repo & git
 
