@@ -5,11 +5,11 @@
   "type": "module",
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "check-deployment": "node --experimental-strip-types src/checkDeployment.ts",
-    "gas-proof": "node --experimental-strip-types src/gasProof.ts",
-    "attestation-logs": "node --experimental-strip-types src/attestationLogs.ts",
-    "real-gas-numbers": "node --experimental-strip-types src/realGasNumbers.ts",
-    "cardano-bootstrap-vault": "node --experimental-strip-types src/cardanoBootstrapVault.ts"
+    "check-deployment": "tsc -p tsconfig.json && node --env-file=../../.env dist/checkDeployment.js",
+    "gas-proof": "tsc -p tsconfig.json && node --env-file=../../.env dist/gasProof.js",
+    "attestation-logs": "tsc -p tsconfig.json && node --env-file=../../.env dist/attestationLogs.js",
+    "real-gas-numbers": "tsc -p tsconfig.json && node --env-file=../../.env dist/realGasNumbers.js",
+    "cardano-bootstrap-vault": "tsc -p tsconfig.json && node --env-file=../../.env dist/cardanoBootstrapVault.js"
   },
   "dependencies": {
     "@quattestor/adapters": "workspace:*",

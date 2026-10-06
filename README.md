@@ -88,8 +88,12 @@ private keys before running either service.
 
 ## NOWNodes infrastructure pillars used
 
-RPC (core), WebSockets (`eth_subscribe` logs -- real-time attestation
-trigger, no webhook support on EVM), Archive Nodes, Debug & Trace. gRPC and
-Blockbook deliberately skipped -- reasoning in `PLAN.md`.
+RPC (core, confirmed live on Sepolia -- see PLAN.md for the first real
+attestation+withdraw cycle), WebSockets (`eth_subscribe` logs -- real-time
+attestation trigger, no webhook support on EVM), Archive Nodes. Debug &
+Trace (`debug_traceTransaction`) is documented by NOWNodes but returns
+`405 Method Not Allowed` on this hackathon key -- noted as unavailable,
+not silently dropped. gRPC and Blockbook deliberately skipped -- reasoning
+in `PLAN.md`.
 
 See `PLAN.md` for what's built, what's left, and the hour-by-hour schedule.

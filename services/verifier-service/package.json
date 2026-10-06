@@ -6,7 +6,7 @@
   "main": "src/index.ts",
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "dev": "node --experimental-strip-types src/index.ts"
+    "dev": "tsc -p tsconfig.json && node --env-file=../../.env dist/index.js"
   },
   "dependencies": {
     "@quattestor/core": "workspace:*",
