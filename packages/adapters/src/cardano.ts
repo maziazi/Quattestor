@@ -58,6 +58,28 @@ export interface CardanoOperatorKey {
   recipientAddress: string;
 }
 
+/**
+ * Lucid Evolution's `Blockfrost` provider always sends `project_id`
+ * (standard Blockfrost auth) -- confirmed by a live call that NOWNodes'
+ * "Blockfrost-compatible" Cardano endpoint rejects that with "Unknown
+ * API_key" and wants their own `api-key` header instead, same as every
+ * other chain in this repo. `fetch` is `private` in Blockfrost's *type*
+ * declarations but a plain method at runtime (no JS `#` privacy), so the
+ * instance's own `fetch` property can be monkey-patched directly instead
+ * of reimplementing the entire `Provider` interface from scratch.
+ */
+export function createNowNodesBlockfrostProvider(url: string, apiKey: string): Blockfrost {
+  const provider = new Blockfrost(url, apiKey);
+  const providerAny = provider as unknown as { fetch: (input: unknown, init?: RequestInit) => Promise<Response> };
+  const originalFetch = providerAny.fetch.bind(provider);
+  providerAny.fetch = (input: unknown, init: RequestInit = {}) => {
+    const headers = new Headers(init.headers);
+    headers.set("api-key", apiKey);
+    return originalFetch(input, { ...init, headers });
+  };
+  return provider;
+}
+
 function loadScripts(blueprintPath: string, trustedOperatorPkh: string) {
   const blueprint = JSON.parse(readFileSync(blueprintPath, "utf8"));
   const find = (title: string) => {
@@ -114,7 +136,7 @@ export function computeCardanoActionHash(
 }
 
 export async function createCardanoAdapter(cfg: CardanoAdapterConfig): Promise<ChainAdapter> {
-  const provider = new Blockfrost(cfg.rpcUrl, cfg.apiKey);
+  const provider = createNowNodesBlockfrostProvider(cfg.rpcUrl, cfg.apiKey);
   const lucid = await Lucid(provider, cfg.network);
   const { mintingPolicy, policyId, spendingValidator } = loadScripts(
     cfg.plutusBlueprintPath,
@@ -234,7 +256,7 @@ export async function bootstrapVault(
   ownerSkey: string,
   initialLovelace: bigint,
 ): Promise<string> {
-  const provider = new Blockfrost(cfg.rpcUrl, cfg.apiKey);
+  const provider = createNowNodesBlockfrostProvider(cfg.rpcUrl, cfg.apiKey);
   const lucid = await Lucid(provider, cfg.network);
   const { spendingValidator } = loadScripts(cfg.plutusBlueprintPath, cfg.trustedOperatorPkh);
   const vaultAddress = validatorToAddress(cfg.network, spendingValidator);

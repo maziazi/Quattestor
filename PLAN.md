@@ -98,7 +98,9 @@ Catatan jujur yang perlu disebut di deck kalau dipilih Opsi A: registry ini **in
 
 Tidak blocking untuk lanjut kerja — flagged supaya jelas saat nanti menjawab pertanyaan juri soal "kenapa Cardano adapter-nya beda bentuk".
 
-**[SELESAI] Gap bootstrap vault UTXO** — `bootstrapVault()` di `packages/adapters/src/cardano.ts` + CLI `services/ops-tools/src/cardanoBootstrapVault.ts` (`pnpm --filter @quattestor/ops-tools cardano-bootstrap-vault`). Mengirim ADA ke vault address dengan `VaultDatum{owner, counter: 0}` sebagai inline datum. Compile bersih, belum diuji ke mainnet nyata (sama seperti seluruh adapter Cardano lainnya).
+**[SELESAI] Gap bootstrap vault UTXO** — `bootstrapVault()` di `packages/adapters/src/cardano.ts` + CLI `services/ops-tools/src/cardanoBootstrapVault.ts` (`pnpm --filter @quattestor/ops-tools cardano-bootstrap-vault`). Mengirim ADA ke vault address dengan `VaultDatum{owner, counter: 0}` sebagai inline datum. Compile bersih. **Update:** koneksi live ke endpoint Cardano NOWNodes sudah terbukti jalan (lewat `cardano-generate-wallet`, lihat §4) — tapi `bootstrapVault()` sendiri belum dijalankan, masih menunggu wallet terisi dana.
+
+**[SELESAI] Gap header auth** — ditemukan saat generate wallet pertama kali: `Blockfrost` bawaan Lucid Evolution kirim header `project_id` (ditolak NOWNodes: "Unknown API_key"). Fix: `createNowNodesBlockfrostProvider()`, patch method `fetch` instance `Blockfrost` untuk sisipkan header `api-key` NOWNodes — tanpa reimplementasi interface `Provider` yang besar. Semua pemanggilan `new Blockfrost(...)` di `cardano.ts` sudah diganti ke helper ini.
 
 ## 4. Checklist aksi — apa yang perlu ANDA kerjakan sekarang
 
@@ -132,17 +134,23 @@ Urutan mengikuti jadwal §8 dokumen arsitektur. Item bertanda **(saya/Claude bis
 - [x] Anchor CLI + Solana CLI terinstall & terverifikasi
 - [x] GO/NO-GO #1: `anchor build` sukses, menghasilkan `.so` valid
 - [x] Program `quattestor_solana` ditulis lengkap, **GO/NO-GO #2 lolos nyata**: `cargo test` 4/4 pass
-- [ ] **Wallet mainnet terpisah, isi dana SOL asli seminim mungkin** — ini mainnet, bukan devnet, jadi berlaku checklist keamanan dana asli yang sama seperti EVM mainnet (deploy dulu, konfirmasi dulu, baru isi dana)
-- [ ] GO/NO-GO #3 (e2e mainnet nyata, lewat `signer-script` + adapter) — menunggu wallet di atas
+- [x] **[DIGANTI, 6 Okt 2026]** Sempat digenerate 3 wallet via `solana-keygen` di sisi saya, lalu **dibatalkan atas keputusan user** — pakai wallet Phantom (bukan auto-generate) sesuai pola yang sudah dipakai untuk ETH Sepolia (§4 fase ETH). File lama sudah dihapus (tidak pernah terfunded).
+- [ ] **Buat 3 akun di Phantom** (Deployer/Operator/User), export private key tiap akun (format base58, langsung cocok dengan `Keypair.fromSecretKey` di `solana.ts`), paste ke `.env` (`SOLANA_*_SECRET_KEY`) — instruksi lengkap ada di komentar `.env`.
+- [ ] **Fase testing: devnet dulu, bukan mainnet NOWNodes** — keputusan baru user. `SOLANA_DEVNET_RPC_URL=https://api.devnet.solana.com` sudah ditambah ke `.env`, terpisah dari `SOLANA_RPC_URL` (NOWNodes, mainnet). Fund 3 akun Phantom via faucet devnet (`solana airdrop 1 <ADDR> --url devnet` atau `faucet.solana.com`) — gratis, bukan SOL asli.
+- [ ] Deploy program ke **devnet** dulu (`anchor deploy --provider.cluster devnet`) untuk validasi e2e penuh tanpa risiko dana asli — `SOLANA_PROGRAM_ID` diisi dari hasil ini untuk fase testing.
+- [ ] **Baru setelah devnet e2e lolos**: ulangi deploy ke **mainnet** lewat `SOLANA_RPC_URL` (NOWNodes) untuk submission asli — ini butuh SOL asli (checklist dana asli berlaku), `SOLANA_PROGRAM_ID` akan beda address dari hasil devnet.
+- [ ] GO/NO-GO #3 (e2e devnet dulu, lalu e2e mainnet nyata) — menunggu wallet Phantom + dana di atas
 
 ### Fase Cardano mainnet (chain baru, ganti Osmosis)
 - [x] Toolchain Aiken 1.1.24 terinstall & terverifikasi (`brew install aiken-lang/tap/aiken`)
 - [x] Validator `vault.ak` + `verifier.ak` ditulis lengkap, **lolos test nyata**: `aiken check` 7/7 pass, `aiken build` sukses menghasilkan `plutus.json`
 - [x] Adapter `packages/adapters/src/cardano.ts` ditulis lengkap via Lucid Evolution
 - [x] Fungsi bootstrap vault UTXO — `cardano-bootstrap-vault` script, lihat §3c
-- [ ] **Wallet mainnet Cardano terpisah, isi dana ADA asli seminim mungkin** — ini mainnet sungguhan, checklist keamanan dana asli berlaku
-- [ ] Verifikasi header auth NOWNodes Blockfrost-compatible (`project_id` vs `api-key`, lihat `.env.example`) — baru bisa dicek dengan panggilan nyata
-- [ ] GO/NO-GO e2e mainnet nyata — menunggu 3 item di atas
+- [x] **Header auth NOWNodes Blockfrost-compatible terkonfirmasi: `api-key`, bukan `project_id`** — ditemukan lewat panggilan nyata (`project_id` dari Blockfrost provider bawaan Lucid ditolak: "Unknown API_key"). Fix: `createNowNodesBlockfrostProvider()` di `cardano.ts` (patch instance method `fetch` milik `Blockfrost`, bukan reimplementasi interface `Provider` dari nol).
+- [x] Wallet Operator + User digenerate (`pnpm --filter @quattestor/ops-tools cardano-generate-wallet`, pakai `generatePrivateKey()` Lucid Evolution — ini SEKALIGUS jadi tes konektivitas live pertama ke endpoint Cardano, dan yang membuktikan temuan header di atas) — tersimpan di `.env`
+- [ ] **Isi dana ADA asli** ke address Operator & User (mainnet sungguhan, checklist keamanan dana asli berlaku) — lihat `.env` untuk address lengkap
+- [ ] Jalankan `cardano-bootstrap-vault` begitu User terisi dana
+- [ ] GO/NO-GO e2e mainnet nyata — menunggu dana di atas
 
 ### Lintas-fase / stretch goals (murah, boleh diselipkan kapan saja setelah happy path ETH hijau)
 - [x] Script `debug_traceTransaction` — `services/ops-tools/src/gasProof.ts`, jalankan: `TX_HASH=0x.. pnpm --filter @quattestor/ops-tools gas-proof`
