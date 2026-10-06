@@ -18,7 +18,7 @@
 
 **Yang belum tersentuh sama sekali:** Solana, Osmosis, deploy ke chain manapun, deck, screen recording.
 
-**Update berjalan:** Anchor CLI (`avm install latest`) sedang di-install di background sejak increment ini ditulis — cek status build sebelum mulai fase Solana.
+**Update:** Anchor CLI sudah terinstall & terverifikasi (`anchor-cli 1.2.0`, lewat `avm`). Fase Solana (jam 21:30+) tidak lagi diblokir toolchain — tinggal GO/NO-GO #1 (`anchor build` project kosong) begitu waktunya tiba.
 
 ## 2. Penyesuaian teknis dari dokumen arsitektur — dan alasannya
 
@@ -64,7 +64,7 @@ Urutan mengikuti jadwal §8 dokumen arsitektur. Item bertanda **(saya/Claude bis
 - [ ] Simpan private key wallet mainnet ini terpisah dari `.env` development harian
 
 ### Fase Solana devnet (jam 21:30–29)
-- [ ] Anchor CLI — **sedang di-install otomatis di background** (`avm install latest`), cek `anchor --version` sebelum mulai
+- [x] Anchor CLI terinstall & terverifikasi (`anchor-cli 1.2.0`)
 - [ ] GO/NO-GO #1 (jam 21:30): `anchor build` project kosong
 - [ ] **(saya bisa bantu)** Tulis program `quattestor_solana` (§5.2) begitu toolchain siap — minta saya mulai begitu checkpoint #1 lolos
 
