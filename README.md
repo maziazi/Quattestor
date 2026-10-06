@@ -67,10 +67,14 @@ cd contracts/cardano && aiken check          # 7/7 passing (vault 4/4, verifier 
 ```
 
 ```bash
-# Deploy EVM (same script, only --rpc-url changes between ETH Sepolia and Base Sepolia):
+# Deploy EVM (same script, only --rpc-url changes between ETH Sepolia and Base Sepolia).
+# NOTE: forge/cast can't send the custom `api-key` header NOWNodes requires --
+# use the API key embedded in the URL path instead (confirmed working),
+# NOT $ETH_RPC_URL (that one is header-based, for the TS services only).
 cd contracts/evm
 forge script script/Deploy.s.sol \
-  --rpc-url $ETH_RPC_URL --broadcast --private-key $DEPLOYER_PRIVATE_KEY
+  --rpc-url https://eth-sepolia.nownodes.io/$NOWNODES_API_KEY \
+  --broadcast --private-key $DEPLOYER_PRIVATE_KEY
 ```
 
 ```bash

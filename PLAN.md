@@ -56,6 +56,7 @@ Dicatat supaya kalau muncul lagi di environment lain, tidak perlu debug ulang da
 3. **Program ter-compile ke format SBPFv3** (target `sbpfv3-solana-solana` — Solana CLI yang baru terinstall, 4.1.2, sangat mutakhir), tapi `litesvm 0.10.0` (versi default template) belum dukung SBPFv3 → gagal load `.so` dengan `InvalidAccountData`. Fix: upgrade `litesvm` ke `0.17.0`.
 4. **`litesvm 0.17.0` butuh rustc ≥1.97.1**, environment ini masih pin ke rustc 1.89.0 (lewat `rust-toolchain.toml` bawaan template). Fix: `rustup update stable` (dapat 1.99.0) + ubah `rust-toolchain.toml` dari `1.89.0` ke `1.99.0`.
 5. **Konflik 2 versi `solana-transaction`/`solana-message`** (3.x vs 4.x) setelah upgrade litesvm — dependency langsung di `Cargo.toml` test masih pin versi lama, sementara `litesvm` baru butuh versi 4.x, menyebabkan error "no associated function `try_new`" (tipe yang sama secara nama, beda secara versi, tidak bisa dicocokkan compiler). Fix: samakan versi `solana-message`/`solana-transaction` di `[dev-dependencies]` ke `4.2.4`/`4.1.5` (persis yang dipakai `litesvm 0.17.0` secara internal).
+6. **`forge`/`cast` tidak bisa kirim custom header** — jadi `--rpc-url https://eth-sepolia.nownodes.io` (header `api-key`, yang dipakai kode TS) gagal dengan `HTTP error 422: Missing API_key`. Fix: NOWNodes juga dukung auth lewat **path URL** (`https://eth-sepolia.nownodes.io/<api_key>`, terkonfirmasi lewat curl) — dipakai khusus untuk `forge`/`cast`, bukan buat ganti `ETH_RPC_URL` di `.env` (yang tetap header-based untuk kode TS). **Penting:** kombinasi path+header SEKALIGUS malah `404` (saling konflik) — jangan dipakai bersamaan, pilih satu sesuai tool-nya.
 
 ## 2. Penyesuaian teknis dari dokumen arsitektur — dan alasannya
 
@@ -105,7 +106,11 @@ Urutan mengikuti jadwal §8 dokumen arsitektur. Item bertanda **(saya/Claude bis
 - [x] **Base/Arbitrum/Solana/Osmosis** — sudah ada jawaban langsung NOWNodes, lihat notice PIVOT di atas dokumen. Tidak perlu dicek lagi.
 
 ### Fase ETH Sepolia (baseline, lantai minimum — harus selalu siap submit)
-- [ ] Deploy: `forge script script/Deploy.s.sol --rpc-url $ETH_RPC_URL --broadcast --private-key $DEPLOYER_PRIVATE_KEY`
+- [x] `NOWNODES_API_KEY` terkonfirmasi jalan — `eth_chainId` dan `eth_getBalance` sukses lewat RPC Sepolia nyata
+- [x] 3 wallet demo digenerate (`cast wallet new`) dan sudah diisi ke `.env` — Deployer `0x90B9...9007`, Operator `0x43F9...58a7`, User `0x5850...bbF` (semua saldo 0, baru dibuat)
+- [x] **Dry-run deploy sukses** (`forge script script/Deploy.s.sol --rpc-url https://eth-sepolia.nownodes.io/$NOWNODES_API_KEY`, tanpa `--broadcast`) — terhubung ke RPC nyata, baca `chainid`+`trustedOperator` dengan benar, simulasi penuh tanpa error. **Kebutuhan gas presisi: ≈0,00275 ETH** (gas price saat dicek: 2,24 gwei) — sarankan isi Deployer dengan ≥0,01 ETH untuk buffer deploy+submitAttestation.
+- [ ] **Menunggu Anda:** isi faucet Sepolia ke address Deployer (`0x90B9E504a6d42AcC4BD199484539Ff1bbf539007`) ≥0,01 ETH dan Operator (`0x43F9D5Cc86CbA1FFFd6f85a2422e901BaCE958a7`) sedikit (untuk gas `submitAttestation` nanti) — faucet: `sepoliafaucet.com` atau faucet Alchemy/Google Cloud Web3
+- [ ] Deploy sungguhan (pakai `--broadcast` + path URL di atas, bukan `$ETH_RPC_URL` biasa — lihat §1b poin 6) begitu Deployer terisi
 - [ ] Catat `Vault`/`Verifier` address ke `.env`
 - [ ] Jalankan `pnpm --filter @quattestor/ops-tools check-deployment` — konfirmasi bytecode ada sebelum lanjut
 - [ ] Jalankan `verifier-service` (`pnpm --filter @quattestor/verifier-service dev`) lalu `signer-script` (`pnpm --filter @quattestor/signer-script start`) — ini uji e2e pertama yang menyentuh RPC nyata
@@ -175,7 +180,7 @@ Urutan prioritas: 5 variabel pertama (sampai `USER_PRIVATE_KEY`) adalah **minimu
 
 | Variabel | Cara mengisi |
 |---|---|
-| `VAULT_ADDRESS`, `VERIFIER_ADDRESS` | Jalankan `forge script script/Deploy.s.sol --rpc-url $ETH_RPC_URL --broadcast --private-key $DEPLOYER_PRIVATE_KEY` — address Vault & Verifier tercetak di output terminal, copy ke sini. Setelah Vault punya address, kirim sedikit ETH ke address itu (`cast send $VAULT_ADDRESS --value 0.01ether --rpc-url $ETH_RPC_URL --private-key $DEPLOYER_PRIVATE_KEY`) supaya ada saldo untuk di-`withdraw()` saat demo. |
+| `VAULT_ADDRESS`, `VERIFIER_ADDRESS` | **Catatan §1b poin 6: `forge`/`cast` butuh URL dengan key di path, bukan `$ETH_RPC_URL` biasa** (yang header-based, cuma dipahami kode TS). Jalankan: `forge script script/Deploy.s.sol --rpc-url https://eth-sepolia.nownodes.io/$NOWNODES_API_KEY --broadcast --private-key $DEPLOYER_PRIVATE_KEY` — address Vault & Verifier tercetak di output terminal, copy ke sini. Setelah Vault punya address, kirim sedikit ETH ke address itu (`cast send $VAULT_ADDRESS --value 0.01ether --rpc-url https://eth-sepolia.nownodes.io/$NOWNODES_API_KEY --private-key $DEPLOYER_PRIVATE_KEY`) supaya ada saldo untuk di-`withdraw()` saat demo. |
 
 ### Opsional / fase berikutnya
 
