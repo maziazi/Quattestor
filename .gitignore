@@ -7,6 +7,11 @@ contracts/evm/out/
 contracts/evm/cache/
 contracts/evm/broadcast/
 
+target/
+.anchor/
+test-ledger/
+*.rs.bk
+
 .env
 .env.*
 !.env.example

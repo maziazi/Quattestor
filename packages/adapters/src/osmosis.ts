@@ -1,39 +1,106 @@
-import type { ChainAdapter } from "@quattestor/core";
+import { CosmWasmClient, SigningCosmWasmClient } from "@cosmjs/cosmwasm-stargate";
+import { Secp256k1, Secp256k1Signature, sha256 } from "@cosmjs/crypto";
+import { DirectSecp256k1Wallet } from "@cosmjs/proto-signing";
+import { GasPrice } from "@cosmjs/stargate";
+import type { ChainAdapter, VaultActionParams } from "@quattestor/core";
 
 /**
- * STUB -- fill in during jadwal jam 29:30-32:30 (CosmWasm/Rust, Vault +
- * Verifier contracts). See architecture doc §5.3, §2.2 col "Osmosis":
- *   - classical sig: secp256k1-Cosmos, verify against pubkey over SHA256 of
- *     the Amino/Direct sign doc (not keccak, not EIP-191)
- *   - counter: sequential, stored in CosmWasm contract state Map, same
- *     pattern as Solana (NOT a random hash key)
- *   - actionHash: keccak256(vault_addr, chain_id, user_addr, amount, nonce)
- *     -- must use crate `sha3` for keccak256, NOT Cosmos SDK's native
- *     sha256, so the formula stays identical across all 5 chains
- *   - pq-sidecar (packages/core/src/pq.ts): reused 100%, 0 changes
+ * Osmosis ChainAdapter -- architecture doc §5.3. UNVERIFIED before use: the
+ * exact NOWNodes RPC host for Osmosis testnet has never been checked
+ * against the dashboard (see PLAN.md §5/§12 -- same category of mistake
+ * that happened with Base Sepolia not existing at all).
  *
- * Unverified before coding starts, per architecture doc §5.3 and §12:
- * exact NOWNodes RPC/gRPC host for Osmosis testnet -- check the NOWNodes
- * dashboard first, don't assume (same mistake that happened with Base
- * Sepolia, see doc §11).
- *
- * GO/NO-GO checkpoints (jam 29:30, 31, 32:30) in PLAN.md gate whether this
- * gets finished at all -- realistic expectation per jadwal §8 is that this
- * stops at one of the checkpoints before full e2e, and that's fine.
+ * Known identity-model wrinkle, flagged rather than hidden: EVM/Solana
+ * identify a user by the same key their classical signature recovers to
+ * or verifies against. Cosmos SDK addresses are RIPEMD160(SHA256(pubkey))
+ * -- not reversible -- so `claimedIdentity` here must be the base64
+ * secp256k1 PUBLIC KEY, not the bech32 address, unlike every other
+ * adapter. The orchestrator's PQ-key registry (services/verifier-service)
+ * keys on whatever string `claimedIdentity` is, so Osmosis callers must
+ * register/attest using the pubkey string consistently -- this is not
+ * reconciled with the EVM/Solana address convention yet.
  */
-export function createOsmosisAdapter(): ChainAdapter {
-  const notImplemented = () => {
-    throw new Error("osmosis adapter not implemented yet -- see architecture doc §5.3");
-  };
+
+export interface OsmosisAdapterConfig {
+  rpcUrl: string;
+  apiKey: string;
+  vaultContractAddress: string;
+  verifierContractAddress: string;
+  addressPrefix?: string;
+  gasPrice?: string;
+}
+
+function endpoint(cfg: OsmosisAdapterConfig) {
+  return { url: cfg.rpcUrl, headers: { "api-key": cfg.apiKey } };
+}
+
+function actionHashBytes(actionHash: string): Buffer {
+  return Buffer.from(actionHash.replace(/^0x/, ""), "hex");
+}
+
+export function createOsmosisAdapter(cfg: OsmosisAdapterConfig): ChainAdapter {
+  const prefix = cfg.addressPrefix ?? "osmo";
+  const gasPrice = GasPrice.fromString(cfg.gasPrice ?? "0.025uosmo");
+
   return {
-    verifyClassicalSignature: notImplemented,
-    state: {
-      getCounter: notImplemented,
-      isAttested: notImplemented,
-      submitAttestation: notImplemented,
+    // claimedIdentity: base64 secp256k1 public key -- see module doc above.
+    async verifyClassicalSignature(message, signature, claimedIdentity) {
+      try {
+        const pubkey = Buffer.from(claimedIdentity, "base64");
+        const digest = sha256(message);
+        const sig = Secp256k1Signature.fromFixedLength(signature);
+        return await Secp256k1.verifySignature(sig, digest, pubkey);
+      } catch {
+        return false;
+      }
     },
+
+    state: {
+      async getCounter(vaultId, user) {
+        const client = await CosmWasmClient.connect(endpoint(cfg));
+        const result = await client.queryContractSmart(vaultId || cfg.vaultContractAddress, { nonce: { user } });
+        return BigInt(result.nonce);
+      },
+
+      async isAttested(actionHash) {
+        const client = await CosmWasmClient.connect(endpoint(cfg));
+        const result = await client.queryContractSmart(cfg.verifierContractAddress, {
+          is_attested: { action_hash: actionHashBytes(actionHash).toString("base64") },
+        });
+        return Boolean(result.is_attested);
+      },
+
+      // operatorKey: raw secp256k1 private key bytes of the trusted operator.
+      async submitAttestation(actionHash, operatorKey) {
+        const wallet = await DirectSecp256k1Wallet.fromKey(operatorKey as Uint8Array, prefix);
+        const [account] = await wallet.getAccounts();
+        const client = await SigningCosmWasmClient.connectWithSigner(endpoint(cfg), wallet, { gasPrice });
+
+        const result = await client.execute(
+          account.address,
+          cfg.verifierContractAddress,
+          { submit_attestation: { action_hash: actionHashBytes(actionHash).toString("base64") } },
+          "auto",
+        );
+        return result.transactionHash;
+      },
+    },
+
     broadcast: {
-      executeVaultAction: notImplemented,
+      // userKey: raw secp256k1 private key bytes of the demo wallet.
+      async executeVaultAction(params: VaultActionParams, userKey) {
+        const wallet = await DirectSecp256k1Wallet.fromKey(userKey as Uint8Array, prefix);
+        const [account] = await wallet.getAccounts();
+        const client = await SigningCosmWasmClient.connectWithSigner(endpoint(cfg), wallet, { gasPrice });
+
+        const result = await client.execute(
+          account.address,
+          params.vault,
+          { withdraw: { amount: params.amount.toString(), nonce: Number(params.nonce) } },
+          "auto",
+        );
+        return result.transactionHash;
+      },
     },
   };
 }

@@ -11,16 +11,29 @@
 | `script/Deploy.s.sol` | Selesai, belum dijalankan ke chain nyata | Compile sukses, butuh `.env` diisi |
 | `packages/core` — `actionIntent.ts`, `pq.ts`, `chainAdapter.ts` | Selesai, smoke test pass | Round-trip ML-DSA-87 sign/verify sukses, ukuran pubkey (2.592 byte) & signature (4.627 byte) **cocok persis** dengan angka yang dikutip di dokumen arsitektur §9.2 |
 | `packages/adapters/src/evm.ts` | Selesai (compile clean, belum diuji ke RPC nyata) | Tinggal isi `.env` + jalankan smoke test lawan Sepolia |
-| `packages/adapters/src/solana.ts`, `osmosis.ts` | Stub — interface terpenuhi, body `throw not implemented` | Siap diisi sesuai jadwal jam 21:30+ dan 29:30+ |
+| `contracts/solana` (program Anchor `quattestor_solana`) | **Selesai & lolos test nyata** | `cargo test` → **4/4 pass** (happy path withdraw, tanpa atestasi, operator tidak sah, replay actionHash basi), via `litesvm` (simulator Rust murni, tanpa validator lokal) |
+| `packages/adapters/src/solana.ts` | Selesai (compile clean, belum diuji ke RPC devnet nyata) | Implementasi penuh: ed25519 verify, baca/tulis state via NOWNodes RPC manual (bukan SDK Anchor client) |
+| `contracts/osmosis/verifier` + `contracts/osmosis/vault` (CosmWasm) | **Selesai & lolos test nyata** | `cargo test` → **8/8 pass** (Verifier 4/4, Vault 4/4 termasuk happy-path withdraw lintas-kontrak sungguhan via `cw-multi-test`) |
+| `packages/adapters/src/osmosis.ts` | Selesai (compile clean, belum diuji ke RPC testnet nyata) | Implementasi penuh via CosmJS — **ada gap desain terbuka**, lihat §3b |
 | `services/verifier-service` | Selesai (HTTP API `/register` + `/attest` + `/health`, WSS listener, registry PQ key) | Compile clean, belum dites lawan RPC nyata |
 | `services/signer-script` | Selesai (CLI: compute → dual-sign → register → attest → withdraw) | Compile clean, belum dites lawan RPC nyata |
 | `services/ops-tools` | Selesai — 4 script: `checkDeployment`, `gasProof`, `attestationLogs`, `realGasNumbers` | Compile clean, butuh tx hash nyata untuk dijalankan |
 
-**Yang belum tersentuh sama sekali:** Solana, Osmosis, deploy ke chain manapun, deck, screen recording.
+**Yang belum tersentuh sama sekali:** deploy ke chain manapun (ETH/Base/Arbitrum/Solana/Osmosis — semua masih lokal), deck, screen recording.
 
-**Update:** Anchor CLI (`anchor-cli 1.2.0`) dan Solana CLI (`solana-cli 4.1.2`, ter-install otomatis sebagai dependency Anchor) sudah terverifikasi. Fase Solana (jam 21:30+) tidak lagi diblokir toolchain — tinggal GO/NO-GO #1 (`anchor build` project kosong) begitu waktunya tiba.
+**Update besar:** Solana dan Osmosis **tidak lagi stub** — kontrak/program keduanya ditulis penuh dan lolos test nyata (12/12 gabungan: 4 Solana + 8 Osmosis), dikerjakan sambil menunggu `.env`. Toolchain Anchor (`anchor-cli 1.2.0`), Solana CLI (`solana-cli 4.1.2`), dan CosmWasm (`cargo-generate`, `cosmwasm-check`, target `wasm32-unknown-unknown`) semua terinstall & terverifikasi. Detail masalah toolchain yang ditemukan+diperbaiki ada di §1b.
 
 Catatan: installer Solana menambahkan `export PATH=".../solana/install/active_release/bin:$PATH"` ke `~/.profile`, `~/.zprofile`, `~/.bash_profile` secara otomatis (perilaku standar installer-nya) — buka terminal baru sebelum pakai `solana`/`anchor` langsung tanpa export manual.
+
+## 1b. Masalah toolchain yang ditemukan & diperbaiki (log teknis)
+
+Dicatat supaya kalau muncul lagi di environment lain, tidak perlu debug ulang dari nol:
+
+1. **`anchor init` men-generate template baru (anchor-lang 1.2.0)** yang beda total dari yang diasumsikan dokumen arsitektur — pakai struktur modular `instructions/` per-instruksi dan test via `litesvm` (simulator Rust murni, native `cargo test`), bukan `anchor test` + `solana-test-validator` + Mocha/TS seperti anchor versi lama. **Keputusan: ikuti pola baru ini** — lebih cepat (tidak perlu spin up validator), tetap sepenuhnya memvalidasi logic on-chain yang sama.
+2. **`anchor_lang::solana_program::keccak` tidak ada** di anchor-lang 1.2.0 (struktur crate Solana versi baru dipecah jadi puluhan crate `solana-*` granular). Fix: tambah dependency `solana-keccak-hasher` langsung, pakai `solana_keccak_hasher::hash()`.
+3. **Program ter-compile ke format SBPFv3** (target `sbpfv3-solana-solana` — Solana CLI yang baru terinstall, 4.1.2, sangat mutakhir), tapi `litesvm 0.10.0` (versi default template) belum dukung SBPFv3 → gagal load `.so` dengan `InvalidAccountData`. Fix: upgrade `litesvm` ke `0.17.0`.
+4. **`litesvm 0.17.0` butuh rustc ≥1.97.1**, environment ini masih pin ke rustc 1.89.0 (lewat `rust-toolchain.toml` bawaan template). Fix: `rustup update stable` (dapat 1.99.0) + ubah `rust-toolchain.toml` dari `1.89.0` ke `1.99.0`.
+5. **Konflik 2 versi `solana-transaction`/`solana-message`** (3.x vs 4.x) setelah upgrade litesvm — dependency langsung di `Cargo.toml` test masih pin versi lama, sementara `litesvm` baru butuh versi 4.x, menyebabkan error "no associated function `try_new`" (tipe yang sama secara nama, beda secara versi, tidak bisa dicocokkan compiler). Fix: samakan versi `solana-message`/`solana-transaction` di `[dev-dependencies]` ke `4.2.4`/`4.1.5` (persis yang dipakai `litesvm 0.17.0` secara internal).
 
 ## 2. Penyesuaian teknis dari dokumen arsitektur — dan alasannya
 
@@ -45,6 +58,16 @@ Dokumen arsitektur **tidak pernah menentukan** bagaimana identitas klasik (addre
 
 Catatan jujur yang perlu disebut di deck kalau dipilih Opsi A: registry ini **in-memory, hilang tiap restart proses** — cukup untuk demo karena `signer-script` register ulang tiap run, tapi bukan desain produksi. Roadmap: on-chain registry atau ZK-proof of key possession.
 
+### 3b. Gap baru: konvensi identitas Osmosis beda dari EVM/Solana — belum direkonsiliasi
+
+Ditemukan saat menulis `packages/adapters/src/osmosis.ts`. EVM (`ecrecover`) dan Solana (verify ed25519 langsung) sama-sama mengidentifikasi user lewat key yang **juga** jadi identitas native chain itu. Cosmos SDK beda: address bech32 adalah `RIPEMD160(SHA256(pubkey))` — **tidak bisa dibalik** jadi pubkey. Akibatnya `verifyClassicalSignature` di adapter Osmosis butuh `claimedIdentity` berupa **pubkey base64**, bukan address — satu-satunya adapter yang beda konvensi dari field yang sama di interface `ChainAdapter`.
+
+Belum ada keputusan — 2 opsi kalau mau dirapikan (tidak mendesak, Osmosis sendiri belum disentuh NOWNodes-nya):
+- **Biarkan beda** (status sekarang): `signer-script` cabang Osmosis kirim pubkey, bukan address, sebagai `claimedIdentity`. Disebut eksplisit di deck sebagai "detail implementasi per-VM", bukan bug.
+- **Normalisasi**: ubah signature `ChainAdapter.verifyClassicalSignature` supaya terima `claimedIdentity` + `claimedPublicKey?` opsional, dipakai adapter yang butuh (Osmosis), diabaikan yang tidak (EVM/Solana). Nambah 1 field interface, tidak mengubah logic adapter lain.
+
+Tidak blocking — flagged supaya tidak jadi kejutan saat demo lintas-chain nanti.
+
 ## 4. Checklist aksi — apa yang perlu ANDA kerjakan sekarang
 
 Urutan mengikuti jadwal §8 dokumen arsitektur. Item bertanda **(saya/Claude bisa bantu)** artinya tinggal minta, saya lanjutkan coding-nya begitu prasyaratnya (biasanya kunci/akun) sudah ada.
@@ -66,15 +89,20 @@ Urutan mengikuti jadwal §8 dokumen arsitektur. Item bertanda **(saya/Claude bis
 - [ ] Simpan private key wallet mainnet ini terpisah dari `.env` development harian
 
 ### Fase Solana devnet (jam 21:30–29)
-- [x] Anchor CLI terinstall & terverifikasi (`anchor-cli 1.2.0`)
-- [ ] GO/NO-GO #1 (jam 21:30): `anchor build` project kosong
-- [ ] **(saya bisa bantu)** Tulis program `quattestor_solana` (§5.2) begitu toolchain siap — minta saya mulai begitu checkpoint #1 lolos
+- [x] Anchor CLI + Solana CLI terinstall & terverifikasi
+- [x] GO/NO-GO #1: `anchor build` sukses, menghasilkan `.so` valid
+- [x] Program `quattestor_solana` ditulis lengkap, **GO/NO-GO #2 lolos nyata**: `cargo test` 4/4 pass
+- [ ] Wallet devnet + faucet (`solana airdrop` atau faucet.solana.com) — belum ada
+- [ ] Host RPC NOWNodes untuk Solana devnet — belum dicek ke dashboard, perlu sebelum adapter diuji ke RPC nyata
+- [ ] GO/NO-GO #3 (e2e devnet nyata, lewat `signer-script` + adapter) — menunggu 2 item di atas
 
 ### Fase Osmosis testnet (jam 29:30–32:30)
-- [ ] `cargo install cargo-generate`, target `wasm32-unknown-unknown`, `cosmwasm-check` — belum ada
-- [ ] **Cek dashboard NOWNodes langsung** untuk host RPC/gRPC Osmosis testnet — jangan asumsikan (ini persis kesalahan yang terjadi dengan Base Sepolia, lihat doc §11)
+- [x] `cargo-generate`, `cosmwasm-check`, target `wasm32-unknown-unknown` terinstall & terverifikasi
+- [x] Kontrak `quattestor-verifier` + `quattestor-vault` ditulis lengkap, **GO/NO-GO #2 lolos nyata**: `cargo test` 8/8 pass (termasuk happy-path withdraw lintas-kontrak via `cw-multi-test`)
+- [ ] **Cek dashboard NOWNodes langsung** untuk host RPC/gRPC Osmosis testnet — masih belum dicek, jangan asumsikan (ini persis kesalahan yang terjadi dengan Base Sepolia, lihat doc §11)
 - [ ] Wallet testnet Osmosis + faucet
-- [ ] **(saya bisa bantu)** Tulis kontrak CosmWasm (§5.3) begitu 2 item di atas siap
+- [ ] Putuskan gap identitas §3b (boleh dibiarkan untuk demo, tidak blocking)
+- [ ] GO/NO-GO #3 (e2e testnet nyata) — menunggu 2 item di atas
 
 ### Lintas-fase / stretch goals (murah, boleh diselipkan kapan saja setelah happy path ETH hijau)
 - [x] Script `debug_traceTransaction` — `services/ops-tools/src/gasProof.ts`, jalankan: `TX_HASH=0x.. pnpm --filter @quattestor/ops-tools gas-proof`
@@ -94,10 +122,10 @@ Urutan mengikuti jadwal §8 dokumen arsitektur. Item bertanda **(saya/Claude bis
 | **Ethereum Sepolia** | `Vault.sol`/`Verifier.sol` — selesai, 6/6 test pass | `packages/adapters/src/evm.ts` — selesai | **Tinggal isi env + deploy.** Ini satu-satunya chain yang betul-betul "tinggal env". |
 | **Base** | **Bytecode identik** dengan Sepolia (klaim inti arsitektur: 0 baris berubah) | **Sama persis** `evm.ts` — cuma config (`rpcUrl`/`vaultAddress`/`verifierAddress`) beda | Kode sudah selesai, tapi **bukan cuma isi env** — tetap harus jalankan ulang `forge script script/Deploy.s.sol` dengan `--rpc-url $BASE_RPC_URL` untuk dapat address Vault/Verifier yang baru (beda dari Sepolia, meski bytecode-nya sama). Plus checklist keamanan mainnet (dana asli) di §4. |
 | **Arbitrum** | Sama seperti Base | Sama seperti Base | Sama seperti Base |
-| **Solana** | **Belum ditulis.** `packages/adapters/src/solana.ts` isinya `throw new Error("not implemented")` | Stub, bukan implementasi | **Bukan cuma isi env — butuh coding penuh**: program Anchor/Rust (`VaultPda`/`AttestationPda`, §5.2 dokumen arsitektur), lalu isi adapter sungguhan. Toolchain (Anchor+Solana CLI) sudah siap, tinggal minta saya mulai. |
-| **Osmosis** | **Belum ditulis.** `packages/adapters/src/osmosis.ts` sama, stub | Stub | **Bukan cuma isi env — butuh coding penuh**: kontrak CosmWasm (§5.3), plus host RPC/gRPC NOWNodes untuk Osmosis testnet belum pernah dicek (beda dari ETH/Base/Arbitrum yang sudah terverifikasi). Toolchain (`cargo-generate`, target `wasm32-unknown-unknown`) belum terinstall. |
+| **Solana** | **Selesai, lolos test nyata** — program Anchor `quattestor_solana` (`contracts/solana`), `cargo test` 4/4 pass | **Selesai** — `packages/adapters/src/solana.ts`, ed25519 verify + baca/tulis state manual via NOWNodes RPC | Kode lengkap di kedua sisi (on-chain + off-chain). **Belum diuji ke devnet nyata** — perlu wallet devnet + faucet + host RPC NOWNodes Solana (belum dicek ke dashboard, tapi kemungkinan besar standar `sol.nownodes.io`-style, resiko lebih rendah dari Osmosis). |
+| **Osmosis** | **Selesai, lolos test nyata** — kontrak CosmWasm `quattestor-verifier`+`quattestor-vault` (`contracts/osmosis`), `cargo test` 8/8 pass | **Selesai** — `packages/adapters/src/osmosis.ts` via CosmJS, **dengan 1 gap desain terbuka** (§3b: konvensi pubkey vs address) | Kode lengkap di kedua sisi. **Belum diuji ke testnet nyata** — host RPC/gRPC NOWNodes untuk Osmosis testnet **masih belum pernah dicek ke dashboard** (resiko tertinggi dari 5 chain, sama kategori dengan kasus Base Sepolia yang ternyata tidak ada). |
 
-**Ringkas:** EVM (ETH/Base/Arbitrum) = 1 basis kode, selesai, tinggal jalankan deploy per chain + isi env. Solana & Osmosis = belum ada satu baris implementasi pun, cuma kerangka interface + toolchain (Solana) yang sudah siap.
+**Ringkas, update dari sebelumnya:** Kelimanya sekarang punya kode lengkap di sisi kontrak/program DAN adapter off-chain. EVM (ETH/Base/Arbitrum) sudah diverifikasi penuh termasuk formula gas; Solana & Osmosis sudah lolos test lokal (litesvm / cw-multi-test) tapi **belum ada satu pun yang diuji lawan RPC NOWNodes sungguhan** — itu jadi langkah nyata berikutnya begitu `.env` terisi, bukan lagi "coding dari nol".
 
 ## 6. Panduan isi `.env` — per variabel, cara mencarinya
 

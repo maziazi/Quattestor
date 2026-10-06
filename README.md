@@ -29,10 +29,13 @@ chain/VM -- see `packages/core/src/chainAdapter.ts`.
 
 ```
 contracts/evm/          Foundry: Vault.sol + Verifier.sol (ETH Sepolia / Base / Arbitrum)
+contracts/solana/       Anchor program quattestor_solana (VaultPda / AttestationPda)
+contracts/osmosis/      CosmWasm: quattestor-verifier + quattestor-vault
 packages/core/          actionHash formula, ML-DSA sign/verify, ChainAdapter interface
-packages/adapters/      ChainAdapter implementations: evm.ts (done), solana.ts / osmosis.ts (stubs)
+packages/adapters/      ChainAdapter implementations: evm.ts, solana.ts, osmosis.ts (all implemented)
 services/verifier-service/   Off-chain orchestrator + HTTP API + NOWNodes WSS listener
 services/signer-script/      CLI: computes actionHash, dual-signs, calls verifier-service, withdraws
+services/ops-tools/          NOWNodes forensic scripts: deploy check, gas proof, logs, real gas numbers
 ```
 
 ## Why these 5 chains
@@ -42,13 +45,20 @@ Arbitrum are deployed to **mainnet** -- NOWNodes has no testnet for either
 (verified directly against their endpoints, not every L2 does). See
 `PLAN.md` for the full risk tradeoff and mitigation checklist.
 
-## Running the EVM baseline
+## Running the tests
 
 ```bash
-cd contracts/evm
-forge test -vv                 # 6/6 passing: happy path + 4 negative cases
+cd contracts/evm && forge test -vv          # 6/6 passing: happy path + 4 negative cases
 
-# Deploy (same script, only --rpc-url changes across ETH/Base/Arbitrum):
+cd contracts/solana && cargo test            # 4/4 passing, via litesvm (no validator needed)
+
+cd contracts/osmosis/verifier && cargo test  # 4/4 passing
+cd contracts/osmosis/vault && cargo test     # 4/4 passing, via cw-multi-test
+```
+
+```bash
+# Deploy EVM (same script, only --rpc-url changes across ETH/Base/Arbitrum):
+cd contracts/evm
 forge script script/Deploy.s.sol \
   --rpc-url $ETH_RPC_URL --broadcast --private-key $DEPLOYER_PRIVATE_KEY
 ```

@@ -1,0 +1,22 @@
+[package]
+name = "quattestor-verifier"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[profile.release]
+opt-level = "z"
+lto = true
+overflow-checks = true
+panic = "abort"
+codegen-units = 1
+
+[dependencies]
+cosmwasm-std = "2.1"
+cosmwasm-schema = "2.1"
+cw-storage-plus = "2.0"
+schemars = "0.8"
+serde = { version = "1.0", features = ["derive"] }
+thiserror = "1.0"
