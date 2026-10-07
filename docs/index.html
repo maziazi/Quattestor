@@ -507,11 +507,11 @@
         </div>
       </div>
     </div>
-    <p class="video-caption">Live walkthrough: dual-signature withdrawal across Ethereum Sepolia, Base Sepolia and Solana devnet.</p>
+    <p class="video-caption">Live walkthrough: dual-signature withdrawal across Ethereum Sepolia, Base Sepolia, Solana devnet and Cardano preprod.</p>
   </section>
 
   <div class="stats">
-    <div class="stat"><div class="n">3 chains live</div><div class="l">EVM + Solana, one adapter interface, zero core logic changes</div></div>
+    <div class="stat"><div class="n">4 chains live</div><div class="l">EVM + Solana + Cardano, one adapter interface, zero core logic changes</div></div>
     <div class="stat"><div class="n">ML-DSA-87</div><div class="l">NIST post-quantum signature standard</div></div>
     <div class="stat"><div class="n">52,273 gas</div><div class="l">identical attestation cost, Sepolia &amp; Base</div></div>
   </div>
@@ -519,7 +519,7 @@
   <section id="verify">
     <div class="section-head">
       <h2>Verify it yourself</h2>
-      <p>This reads attestation state straight from the live contract or program on each chain: Ethereum and Base through <code>Verifier.sol</code>'s <code>isAttested()</code>, Solana through its on-chain attestation account. Everything goes through public RPC endpoints, never NOWNodes, so no API key ever touches this page. Switch networks to try each chain. Every default hash below is a real attestation from a real transaction.</p>
+      <p>This reads attestation state straight from the live contract or program on each chain: Ethereum and Base through <code>Verifier.sol</code>'s <code>isAttested()</code>, Solana through its on-chain attestation account, Cardano through its attestation NFT's mint history (eUTXO burns the token on withdrawal, so history rather than current existence is the honest check). Everything goes through public RPC endpoints, never NOWNodes, so no API key ever touches this page. Switch networks to try each chain. Every default hash below is a real attestation from a real transaction.</p>
     </div>
 
     <div class="console">
@@ -534,6 +534,7 @@
           <option value="sepolia">Ethereum Sepolia</option>
           <option value="base">Base Sepolia</option>
           <option value="solana">Solana Devnet</option>
+          <option value="cardano">Cardano Preprod</option>
         </select>
       </div>
 
@@ -577,6 +578,11 @@
   const VERIFIER_ADDRESS = "0x7C8b17C04271170989Ad56aEa272F8b3B0a9dDAC";
   const ABI = ["function isAttested(bytes32 actionHash) view returns (bool)"];
   const SOLANA_PROGRAM_ID = "8AS1r7wzeTamJwJ6R8P3hrySqbitHXEnkrwRwobykZcY";
+  // Fixed per deployment -- the attestation minting policy's PolicyId,
+  // derived from contracts/cardano/plutus.json + the trusted operator's
+  // pkh (see loadCardanoVaultIdentifiers in packages/adapters/src/cardano.ts).
+  const CARDANO_POLICY_ID = "dcb2157574d8452f428ce5fccbfd07138fe53ace5d6a4c7e171cb8f8";
+  const CARDANO_KOIOS_URL = "https://preprod.koios.rest/api/v1/asset_history";
 
   const RPCS = {
     sepolia: "https://ethereum-sepolia-rpc.publicnode.com",
@@ -588,16 +594,19 @@
     sepolia: "Ethereum Sepolia",
     base: "Base Sepolia",
     solana: "Solana Devnet",
+    cardano: "Cardano Preprod",
   };
 
   // Each network keeps its own real example hash -- formats differ (EVM
-  // Solidity-ABI keccak vs Solana's raw-bytes keccak, see
-  // packages/core/src/actionIntent.ts vs computeSolanaActionHash), so a
-  // hash from one chain is never valid on another.
+  // Solidity-ABI keccak vs Solana's raw-bytes keccak vs Cardano's own
+  // 5-input formula, see packages/core/src/actionIntent.ts vs
+  // computeSolanaActionHash vs computeCardanoActionHash), so a hash from
+  // one chain is never valid on another.
   const EXAMPLE_HASH = {
     sepolia: "0x130dfa5202ebdedb36e5e881ea285e7a8664cd7fd9478949710a3b7a470ec138",
     base: "0xc5860ed132dcaac184f46debd595fa5dfce3749dc98ff5f78abdc2226c9ab8a9",
     solana: "0x20c35113dab1977995cbf8acd5e2d002cd7c758b590d01cb56a0a5f325c08c5c",
+    cardano: "0x992f2686d5c3ff62a9c6d59398d77444b24ffd7cae4da737de9e2a3f1b1596ae",
   };
 
   const btn = document.getElementById("verifyBtn");
@@ -674,6 +683,31 @@
     };
   }
 
+  async function verifyCardano(actionHash) {
+    const assetName = actionHash.replace(/^0x/, "");
+    const res = await fetch(CARDANO_KOIOS_URL, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ _asset_policy: CARDANO_POLICY_ID, _asset_name: assetName }),
+    });
+    if (!res.ok) throw new Error(`Koios returned ${res.status}`);
+    const rows = await res.json();
+    // eUTXO burns the attestation NFT on withdrawal (see vault.ak), so
+    // "was this ever minted" (history) is the honest check -- "does it
+    // currently exist" would wrongly report false after a withdrawal.
+    const mintTx = rows[0]?.minting_txs?.find((t) => BigInt(t.quantity) > 0n);
+    const attested = !!mintTx;
+    return {
+      attested,
+      fields: [
+        ["network", "Cardano Preprod"],
+        ["policyId", CARDANO_POLICY_ID],
+        ["actionHash", actionHash],
+        ["mint tx", mintTx ? mintTx.tx_hash : "(none found)"],
+      ],
+    };
+  }
+
   // Minimal hex -> bytes without relying on Node's Buffer in-browser.
   function Buffer_from_hex(hex) {
     const clean = hex.replace(/^0x/, "");
@@ -686,20 +720,22 @@
     const network = networkSelect.value;
     const actionHash = hashInput.value.trim();
 
+    const PENDING_LABEL = {
+      solana: "Reading Solana devnet account…",
+      cardano: "Querying Koios asset history…",
+    };
+
     btn.disabled = true;
-    setStatus(
-      "pending",
-      network === "solana" ? "Reading Solana devnet account…" : "Sending eth_call…",
-      [],
-    );
+    setStatus("pending", PENDING_LABEL[network] ?? "Sending eth_call…", []);
 
     try {
       if (!/^0x[0-9a-fA-F]{64}$/.test(actionHash)) {
         throw new Error("actionHash must be a 32-byte hex value (0x + 64 hex chars)");
       }
 
-      const { attested, fields } = network === "solana"
-        ? await verifySolana(actionHash)
+      const { attested, fields } =
+        network === "solana" ? await verifySolana(actionHash)
+        : network === "cardano" ? await verifyCardano(actionHash)
         : await verifyEvm(network, actionHash);
 
       setStatus(
