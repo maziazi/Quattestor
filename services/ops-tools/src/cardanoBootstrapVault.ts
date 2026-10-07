@@ -17,6 +17,7 @@ async function main() {
     network: (process.env.CARDANO_NETWORK as CardanoAdapterConfig["network"]) ?? "Mainnet",
     plutusBlueprintPath: requireEnv("CARDANO_PLUTUS_BLUEPRINT_PATH"),
     trustedOperatorPkh: requireEnv("CARDANO_TRUSTED_OPERATOR_PKH"),
+    providerKind: (process.env.CARDANO_PROVIDER_KIND as CardanoAdapterConfig["providerKind"]) ?? "blockfrost",
   };
 
   const ownerSkey = requireEnv("CARDANO_USER_SKEY");

@@ -1,5 +1,9 @@
 import { Lucid, getAddressDetails } from "@lucid-evolution/lucid";
-import { createNowNodesBlockfrostProvider, selectWalletFromSecret } from "@quattestor/adapters";
+import {
+  createNowNodesBlockfrostProvider,
+  createNowNodesKoiosProvider,
+  selectWalletFromSecret,
+} from "@quattestor/adapters";
 import { requireEnv } from "./env.js";
 
 /**
@@ -23,7 +27,12 @@ async function derive(
 
 async function main() {
   const network = (process.env.CARDANO_NETWORK as "Mainnet" | "Preprod" | "Preview") ?? "Mainnet";
-  const provider = createNowNodesBlockfrostProvider(requireEnv("CARDANO_RPC_URL"), requireEnv("NOWNODES_API_KEY"));
+  const apiKey = requireEnv("NOWNODES_API_KEY");
+  const rpcUrl = requireEnv("CARDANO_RPC_URL");
+  const provider =
+    process.env.CARDANO_PROVIDER_KIND === "koios"
+      ? createNowNodesKoiosProvider(rpcUrl, apiKey)
+      : createNowNodesBlockfrostProvider(rpcUrl, apiKey);
   const lucid = await Lucid(provider, network);
 
   await derive(lucid, "OPERATOR", requireEnv("CARDANO_OPERATOR_SKEY"));

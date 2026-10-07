@@ -3,8 +3,10 @@ import {
   Blockfrost,
   Constr,
   Data,
+  Koios,
   Lucid,
   type MintingPolicy,
+  type Provider,
   type SpendingValidator,
   applyParamsToScript,
   getAddressDetails,
@@ -50,6 +52,16 @@ export interface CardanoAdapterConfig {
   plutusBlueprintPath: string;
   /** hex VerificationKeyHash of the trusted operator. */
   trustedOperatorPkh: string;
+  /**
+   * Which Cardano query API `rpcUrl` speaks. Default `"blockfrost"` --
+   * NOWNodes' mainnet endpoint (`ada-blockfrost.nownodes.io`) is
+   * Blockfrost-compatible. Their preprod testnet endpoint
+   * (`ada-testnet.nownodes.io`), discovered later, is Koios-compatible
+   * instead (confirmed live: `/api/v1/genesis` reports `networkmagic: "1"`
+   * = preprod) -- a completely different REST shape, so the provider
+   * must be told which one it's talking to.
+   */
+  providerKind?: "blockfrost" | "koios";
 }
 
 export interface CardanoOperatorKey {
@@ -96,6 +108,94 @@ export function createNowNodesBlockfrostProvider(url: string, apiKey: string): B
     return originalFetch(input, { ...init, headers });
   };
   return provider;
+}
+
+/**
+ * Lucid Evolution's `Koios` provider has no equivalent instance `fetch`
+ * hook to monkey-patch (headers are built inline per-method as
+ * `Authorization: Bearer <token>` and sent through `@effect/platform`'s
+ * `FetchHttpClient`, which ultimately calls the global `fetch`). So the
+ * `api-key` header is injected at that global level instead, scoped to
+ * requests whose host matches `url` so unrelated `fetch` calls elsewhere
+ * in the process are untouched.
+ */
+export function createNowNodesKoiosProvider(url: string, apiKey: string): Koios {
+  const host = new URL(url).host;
+  const original = globalThis.fetch;
+  globalThis.fetch = ((input: RequestInfo | URL, init: RequestInit = {}) => {
+    const target = typeof input === "string" || input instanceof URL ? input.toString() : input.url;
+    if (new URL(target).host !== host) return original(input, init);
+    const headers = new Headers(init.headers);
+    headers.set("api-key", apiKey);
+    return original(input, { ...init, headers });
+  }) as typeof fetch;
+  return new Koios(url);
+}
+
+const KOIOS_PUBLIC_SUBMIT_URL: Record<CardanoAdapterConfig["network"], string> = {
+  Mainnet: "https://api.koios.rest/api/v1/submittx",
+  Preprod: "https://preprod.koios.rest/api/v1/submittx",
+  Preview: "https://preview.koios.rest/api/v1/submittx",
+};
+
+/**
+ * NOWNodes' Cardano `/tx/submit` (both mainnet and the preprod testnet
+ * endpoint) returns a raw, non-Blockfrost server crash --
+ * `{"error":"Cannot read properties of undefined (reading 'data')"}` --
+ * confirmed by posting a real, validly-built-and-signed CBOR transaction
+ * directly (not a malformed probe), ruling out a client-side formatting
+ * issue. The exact same transaction submitted successfully (202, real
+ * tx hash, confirmed on-chain) through Koios's free public `/submittx`
+ * instead. All *reads* through NOWNodes are unaffected and still used --
+ * this only patches the one broken write path, swapping it for Koios's
+ * public submit endpoint (no API key needed for that specific call).
+ */
+function patchSubmitTxViaPublicKoios<P extends { submitTx(tx: string): Promise<string> }>(
+  provider: P,
+  network: CardanoAdapterConfig["network"],
+): P {
+  const submitUrl = KOIOS_PUBLIC_SUBMIT_URL[network];
+  provider.submitTx = async (tx: string): Promise<string> => {
+    const res = await fetch(submitUrl, {
+      method: "POST",
+      headers: { "content-type": "application/cbor" },
+      body: Buffer.from(tx, "hex"),
+    });
+    const text = await res.text();
+    if (!res.ok) throw new Error(`Koios submitTx failed (${res.status}): ${text}`);
+    return JSON.parse(text) as string;
+  };
+  return provider;
+}
+
+export function createNowNodesCardanoProvider(cfg: CardanoAdapterConfig): Provider {
+  const provider =
+    cfg.providerKind === "koios"
+      ? createNowNodesKoiosProvider(cfg.rpcUrl, cfg.apiKey)
+      : createNowNodesBlockfrostProvider(cfg.rpcUrl, cfg.apiKey);
+  return patchSubmitTxViaPublicKoios(provider, cfg.network);
+}
+
+/**
+ * Exposes the same vault-identity derivation `createCardanoAdapter` and
+ * `bootstrapVault` already do internally -- needed by anything that must
+ * independently compute an `actionHash` the way `vault.ak` does (vault's
+ * own script hash + attestation policy id), e.g. a Cardano e2e demo script
+ * that has to attest *before* a withdraw can read the hash back off-chain.
+ * No network/provider access, pure local derivation from the compiled
+ * `plutus.json` + trusted operator pkh.
+ */
+export function loadCardanoVaultIdentifiers(cfg: CardanoAdapterConfig): {
+  vaultAddress: string;
+  vaultScriptHash: Uint8Array;
+  policyId: Uint8Array;
+} {
+  const { policyId, spendingValidator } = loadScripts(cfg.plutusBlueprintPath, cfg.trustedOperatorPkh);
+  return {
+    vaultAddress: validatorToAddress(cfg.network, spendingValidator),
+    vaultScriptHash: Uint8Array.from(Buffer.from(validatorToScriptHash(spendingValidator), "hex")),
+    policyId: Uint8Array.from(Buffer.from(policyId, "hex")),
+  };
 }
 
 function loadScripts(blueprintPath: string, trustedOperatorPkh: string) {
@@ -154,7 +254,7 @@ export function computeCardanoActionHash(
 }
 
 export async function createCardanoAdapter(cfg: CardanoAdapterConfig): Promise<ChainAdapter> {
-  const provider = createNowNodesBlockfrostProvider(cfg.rpcUrl, cfg.apiKey);
+  const provider = createNowNodesCardanoProvider(cfg);
   const lucid = await Lucid(provider, cfg.network);
   const { mintingPolicy, policyId, spendingValidator } = loadScripts(
     cfg.plutusBlueprintPath,
@@ -203,6 +303,12 @@ export async function createCardanoAdapter(cfg: CardanoAdapterConfig): Promise<C
           .newTx()
           .mintAssets({ [unit]: 1n }, Data.void())
           .attach.MintingPolicy(mintingPolicy)
+          // verifier.ak's can_mint checks `extra_signatories` (the tx's
+          // declared required-signer list), NOT the witness set -- signing
+          // with the operator's wallet alone does not add it there. Must
+          // be declared explicitly or the script sees an empty list and
+          // fails ("validator crashed"), confirmed by a real on-chain run.
+          .addSignerKey(cfg.trustedOperatorPkh)
           .pay.ToAddress(recipientAddress, { [unit]: 1n })
           .complete();
 
@@ -249,6 +355,10 @@ export async function createCardanoAdapter(cfg: CardanoAdapterConfig): Promise<C
             { lovelace: vaultUtxo.assets.lovelace - params.amount },
           )
           .pay.ToAddress(userAddress, { lovelace: params.amount })
+          // Same extra_signatories gap as submitAttestation above --
+          // vault.ak's can_withdraw checks `list.has(self.extra_signatories,
+          // owner)`, which stays empty unless declared explicitly.
+          .addSignerKey(ownerPkhHex)
           .complete();
 
         const signed = await tx.sign.withWallet().complete();
@@ -275,7 +385,7 @@ export async function bootstrapVault(
   ownerSecret: string,
   initialLovelace: bigint,
 ): Promise<string> {
-  const provider = createNowNodesBlockfrostProvider(cfg.rpcUrl, cfg.apiKey);
+  const provider = createNowNodesCardanoProvider(cfg);
   const lucid = await Lucid(provider, cfg.network);
   const { spendingValidator } = loadScripts(cfg.plutusBlueprintPath, cfg.trustedOperatorPkh);
   const vaultAddress = validatorToAddress(cfg.network, spendingValidator);
