@@ -3,7 +3,10 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Quattestor — Post-Quantum Attestation Layer</title>
+<title>Quattestor: Post-Quantum Attestation Layer</title>
+<link rel="icon" href="assets/logo-quattensor.svg" type="image/svg+xml">
+<link rel="icon" href="assets/favicon-32.png" type="image/png" sizes="32x32">
+<link rel="apple-touch-icon" href="assets/apple-touch-icon.png" sizes="180x180">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -53,18 +56,42 @@
     padding: 28px 0 0;
   }
   .wordmark {
-    font-size: 1.05rem;
-    font-weight: 700;
-    color: var(--ink);
+    font-size: 1.15rem;
     display: flex;
     align-items: center;
-    gap: 8px;
   }
-  .wordmark .dot {
-    width: 8px; height: 8px; border-radius: 50%;
-    background: var(--purple);
-    box-shadow: 0 0 0 4px var(--tint-2);
+
+  /* ---------- brand lockup: Q-mark (logo) + "uattestor" ---------- */
+  .sr-only {
+    position: absolute;
+    width: 1px; height: 1px;
+    padding: 0; margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
   }
+  .brand {
+    display: inline-flex;
+    align-items: center;
+  }
+  .q-mark {
+    width: 1em;
+    height: 1.03em;
+    flex: none;
+    transform: translateY(0.01em);
+  }
+  .brand-text {
+    font-family: "Arial Rounded MT Bold", "Arial Rounded MT", "SF Pro Rounded", ui-rounded, system-ui, sans-serif;
+    font-weight: 700;
+    color: var(--purple-deep);
+    margin-left: -0.03em;
+  }
+  h1.brand-mark {
+    display: block;
+    margin: 0 0 20px;
+  }
+  h1.brand-mark .q-mark { height: 1.08em; }
   .badge {
     font-size: 0.72rem;
     font-weight: 500;
@@ -291,34 +318,90 @@
   button:hover { background: var(--purple-deep); }
   button:disabled { opacity: 0.55; cursor: wait; }
 
-  #result {
+  /* ---------- verification result ---------- */
+  .verify-result {
     margin-top: 18px;
-    padding: 15px 16px;
-    border-radius: 9px;
-    font-family: "JetBrains Mono", monospace;
-    font-size: 0.82rem;
-    line-height: 1.6;
-    white-space: pre-wrap;
-    word-break: break-all;
+    border-radius: 11px;
+    border: 1px solid var(--code-border);
+    background: #140f1b;
+    overflow: hidden;
     display: none;
   }
-  #result.ok { background: rgba(31, 174, 107, 0.12); border: 1px solid rgba(31, 174, 107, 0.4); color: #4fe3a1; display: block; }
-  #result.bad { background: rgba(226, 74, 74, 0.1); border: 1px solid rgba(226, 74, 74, 0.35); color: #f08a8a; display: block; }
-  #result.pending { background: rgba(165, 105, 234, 0.1); border: 1px solid rgba(165, 105, 234, 0.3); color: #cfb8f0; display: block; }
+  .verify-result.show { display: block; }
 
-  #statusBadge {
-    display: none;
+  .vr-status {
+    display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 12px;
+    padding: 15px 17px;
+    border-left: 3px solid var(--code-border);
+  }
+  .vr-status.pending { border-left-color: var(--purple-dim); background: rgba(165, 105, 234, 0.06); }
+  .vr-status.ok { border-left-color: #2fd089; background: rgba(47, 208, 137, 0.07); }
+  .vr-status.bad { border-left-color: #f08a8a; background: rgba(240, 138, 138, 0.06); }
+  .vr-status.err { border-left-color: #e3b341; background: rgba(227, 179, 65, 0.07); }
+
+  .vr-icon {
+    width: 26px; height: 26px;
+    border-radius: 50%;
+    flex: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .vr-icon svg { width: 14px; height: 14px; }
+  .vr-status.pending .vr-icon { background: rgba(165, 105, 234, 0.16); color: #cfb8f0; }
+  .vr-status.ok .vr-icon { background: rgba(47, 208, 137, 0.16); color: #2fd089; }
+  .vr-status.bad .vr-icon { background: rgba(240, 138, 138, 0.16); color: #f08a8a; }
+  .vr-status.err .vr-icon { background: rgba(227, 179, 65, 0.16); color: #e3b341; }
+
+  .vr-icon .spinner {
+    width: 12px; height: 12px;
+    border-radius: 50%;
+    border: 1.5px solid rgba(207, 184, 240, 0.3);
+    border-top-color: #cfb8f0;
+    animation: vr-spin 0.7s linear infinite;
+  }
+  @keyframes vr-spin { to { transform: rotate(360deg); } }
+
+  .vr-text .vr-label {
+    margin: 0;
+    font-size: 0.68rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: #8f80ab;
+  }
+  .vr-text .vr-value {
+    margin: 2px 0 0;
     font-family: "Space Grotesk", sans-serif;
     font-weight: 700;
-    font-size: 1.05rem;
-    margin-top: 18px;
-    padding: 14px 16px;
-    border-radius: 10px;
+    font-size: 0.98rem;
+    color: #f1ecfa;
   }
-  #statusBadge.ok { display: flex; background: rgba(31, 174, 107, 0.14); color: #2fd089; border: 1px solid rgba(31, 174, 107, 0.4); }
-  #statusBadge.bad { display: flex; background: rgba(226, 74, 74, 0.12); color: #f08a8a; border: 1px solid rgba(226, 74, 74, 0.35); }
+
+  .vr-fields {
+    margin: 0;
+    padding: 14px 17px 15px;
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 9px 18px;
+    border-top: 1px solid var(--code-border);
+  }
+  .vr-fields dt {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 0.73rem;
+    color: #716790;
+    white-space: nowrap;
+  }
+  .vr-fields dd {
+    margin: 0;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 0.8rem;
+    color: #d9cdf2;
+    word-break: break-all;
+    line-height: 1.45;
+  }
   .console-note {
     font-size: 0.78rem;
     color: #8f80ab;
@@ -372,18 +455,41 @@
 </style>
 </head>
 <body>
+<svg aria-hidden="true" style="position:absolute; width:0; height:0; overflow:hidden;">
+  <symbol id="quattestor-q" viewBox="23 61 160 165">
+    <defs>
+      <linearGradient id="qGrad" x1="145.29105" y1="199.63441" x2="67.360275" y2="95.223587" gradientUnits="userSpaceOnUse">
+        <stop offset="0" stop-color="#590c96" />
+        <stop offset="1" stop-color="#8b1ae8" />
+      </linearGradient>
+    </defs>
+    <path d="M 102.65213 66.395431 A 74.879234 74.879234 0 0 0 27.772465 141.27458 A 74.879234 74.879234 0 0 0 102.65213 216.15425 A 74.879234 74.879234 0 0 0 177.53128 141.27458 A 74.879234 74.879234 0 0 0 102.65213 66.395431 z M 106.91647 95.314596 A 53.615448 53.615444 0 0 1 160.53232 148.92993 A 53.615448 53.615444 0 0 1 106.91647 202.54526 A 53.615448 53.615444 0 0 1 53.301139 148.92993 A 53.615448 53.615444 0 0 1 106.91647 95.314596 z" fill="url(#qGrad)" />
+    <circle cx="149.86618" cy="201.98444" r="18.75" fill="#8b1ae8" stroke="#590c96" stroke-width="0.1" />
+    <ellipse cx="181.30408" cy="-133.33846" rx="14.96245" ry="14.962451" transform="rotate(90)" fill="#590c96" stroke="#8b1ae8" stroke-width="0.075" />
+  </symbol>
+</svg>
 <div class="shell">
 
   <header class="topbar">
-    <div class="wordmark"><span class="dot"></span>Quattestor</div>
+    <div class="wordmark">
+      <span class="sr-only">Quattestor</span>
+      <span class="brand" aria-hidden="true">
+        <svg class="q-mark"><use href="#quattestor-q"></use></svg><span class="brand-text">uattestor</span>
+      </span>
+    </div>
     <div class="badge">TOKEN2049 Origins × NOWNodes</div>
   </header>
 
   <section class="hero">
     <p class="eyebrow"><span class="rule"></span>Post-Quantum Attestation Layer</p>
-    <h1>Quattestor</h1>
+    <h1 class="brand-mark">
+      <span class="sr-only">Quattestor</span>
+      <span class="brand" aria-hidden="true">
+        <svg class="q-mark"><use href="#quattestor-q"></use></svg><span class="brand-text">uattestor</span>
+      </span>
+    </h1>
     <p class="lede">
-      Every wallet becomes exposed to Shor's algorithm the moment it sends its first transaction — <strong>Quattestor gates every withdrawal behind a second, quantum-resistant signature (ML-DSA)</strong>, across EVM and non-EVM chains, with zero changes to each chain's core logic.
+      The moment a wallet sends its first transaction, it's exposed to Shor's algorithm. <strong>Quattestor closes that gap by gating every withdrawal behind a second, quantum-resistant signature (ML-DSA)</strong>. It works across EVM and non-EVM chains, with zero changes to each chain's core logic.
     </p>
     <div class="cta-row">
       <a href="#verify" class="btn-primary">Live Demo ↓</a>
@@ -397,7 +503,7 @@
         <!-- Replace this placeholder with: <video controls src="demo.mp4"></video> -->
         <div class="video-placeholder">
           <div class="play-ring"></div>
-          <span>Demo recording — coming shortly</span>
+          <span>Demo recording coming shortly</span>
         </div>
       </div>
     </div>
@@ -413,7 +519,7 @@
   <section id="verify">
     <div class="section-head">
       <h2>Verify it yourself</h2>
-      <p>This reads attestation state straight from the live contract/program on each chain — Ethereum &amp; Base via <code>Verifier.sol</code>'s <code>isAttested()</code>, Solana via the on-chain attestation account — through public RPC endpoints, never NOWNodes, so no API key ever touches this page. Switch networks to try each chain; every default hash is a real attestation from a real transaction.</p>
+      <p>This reads attestation state straight from the live contract or program on each chain: Ethereum and Base through <code>Verifier.sol</code>'s <code>isAttested()</code>, Solana through its on-chain attestation account. Everything goes through public RPC endpoints, never NOWNodes, so no API key ever touches this page. Switch networks to try each chain. Every default hash below is a real attestation from a real transaction.</p>
     </div>
 
     <div class="console">
@@ -438,9 +544,19 @@
       <p class="console-note" style="margin-top:-6px;margin-bottom:10px;">Switching network swaps in that chain's own example hash automatically.</p>
 
       <button id="verifyBtn">Check attestation</button>
-      <div id="statusBadge"></div>
-      <div id="result"></div>
-      <p class="console-note">No wallet connection, no signature, no gas — this is a read-only <code>eth_call</code> executed directly in your browser.</p>
+
+      <div id="verifyResult" class="verify-result">
+        <div id="vrStatus" class="vr-status">
+          <span id="vrIcon" class="vr-icon"></span>
+          <div class="vr-text">
+            <p class="vr-label">Attestation status</p>
+            <p id="vrValue" class="vr-value">Not checked yet</p>
+          </div>
+        </div>
+        <dl id="vrFields" class="vr-fields"></dl>
+      </div>
+
+      <p class="console-note">No wallet connection, no signature, no gas. This is a read-only <code>eth_call</code> executed directly in your browser.</p>
     </div>
   </section>
 
@@ -452,7 +568,7 @@
     <a class="linkcard" href="https://solscan.io/account/8AS1r7wzeTamJwJ6R8P3hrySqbitHXEnkrwRwobykZcY?cluster=devnet" target="_blank" rel="noopener">Program on Solscan (Devnet) <span class="arrow">→</span></a>
   </div>
 
-  <footer>Built for the TOKEN2049 Origins × NOWNodes Hackathon — October 2026</footer>
+  <footer>Built for the TOKEN2049 Origins × NOWNodes Hackathon, October 2026</footer>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/ethers@6.13.4/dist/ethers.umd.min.js"></script>
@@ -485,10 +601,36 @@
   };
 
   const btn = document.getElementById("verifyBtn");
-  const result = document.getElementById("result");
-  const badge = document.getElementById("statusBadge");
+  const verifyResult = document.getElementById("verifyResult");
+  const vrStatus = document.getElementById("vrStatus");
+  const vrIcon = document.getElementById("vrIcon");
+  const vrValue = document.getElementById("vrValue");
+  const vrFields = document.getElementById("vrFields");
   const networkSelect = document.getElementById("network");
   const hashInput = document.getElementById("actionHash");
+
+  const ICONS = {
+    ok: '<svg viewBox="0 0 24 24" fill="none"><path d="M5 12.5l4.5 4.5L19 7" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+    bad: '<svg viewBox="0 0 24 24" fill="none"><path d="M6.5 6.5l11 11M17.5 6.5l-11 11" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg>',
+    err: '<svg viewBox="0 0 24 24" fill="none"><path d="M12 8.5v5M12 17h.01" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/><circle cx="12" cy="12" r="8.2" stroke="currentColor" stroke-width="1.8"/></svg>',
+    pending: '<span class="spinner"></span>',
+  };
+
+  function setStatus(kind, label, fieldPairs) {
+    verifyResult.classList.add("show");
+    vrStatus.className = "vr-status " + kind;
+    vrIcon.innerHTML = ICONS[kind];
+    vrValue.textContent = label;
+    vrFields.innerHTML = "";
+    fieldPairs.forEach(([key, val]) => {
+      const dt = document.createElement("dt");
+      dt.textContent = key;
+      const dd = document.createElement("dd");
+      dd.textContent = val;
+      vrFields.appendChild(dt);
+      vrFields.appendChild(dd);
+    });
+  }
 
   networkSelect.addEventListener("change", () => {
     hashInput.value = EXAMPLE_HASH[networkSelect.value];
@@ -500,11 +642,11 @@
     const attested = await contract.isAttested(actionHash);
     return {
       attested,
-      lines: [
-        `network      : ${NETWORK_LABELS[network]}`,
-        `verifier     : ${VERIFIER_ADDRESS}`,
-        `actionHash   : ${actionHash}`,
-        `isAttested() : ${attested}`,
+      fields: [
+        ["network", NETWORK_LABELS[network]],
+        ["verifier", VERIFIER_ADDRESS],
+        ["actionHash", actionHash],
+        ["isAttested()", String(attested)],
       ],
     };
   }
@@ -522,12 +664,12 @@
     const attested = !!account && account.data[8 + 32] === 1;
     return {
       attested,
-      lines: [
-        `network      : Solana Devnet`,
-        `program      : ${SOLANA_PROGRAM_ID}`,
-        `attestation  : ${attestationPda.toBase58()}`,
-        `actionHash   : ${actionHash}`,
-        `isAttested() : ${attested}`,
+      fields: [
+        ["network", "Solana Devnet"],
+        ["program", SOLANA_PROGRAM_ID],
+        ["attestation", attestationPda.toBase58()],
+        ["actionHash", actionHash],
+        ["isAttested()", String(attested)],
       ],
     };
   }
@@ -545,32 +687,30 @@
     const actionHash = hashInput.value.trim();
 
     btn.disabled = true;
-    badge.className = "";
-    badge.textContent = "";
-    result.className = "pending";
-    result.textContent = network === "solana"
-      ? "Deriving attestation PDA and reading account on devnet..."
-      : "Sending eth_call to public RPC...";
+    setStatus(
+      "pending",
+      network === "solana" ? "Reading Solana devnet account…" : "Sending eth_call…",
+      [],
+    );
 
     try {
       if (!/^0x[0-9a-fA-F]{64}$/.test(actionHash)) {
         throw new Error("actionHash must be a 32-byte hex value (0x + 64 hex chars)");
       }
 
-      const { attested, lines } = network === "solana"
+      const { attested, fields } = network === "solana"
         ? await verifySolana(actionHash)
         : await verifyEvm(network, actionHash);
 
-      badge.className = attested ? "ok" : "bad";
-      badge.textContent = attested ? "✅ Valid attestation" : "❌ Not found";
-
-      result.className = attested ? "ok" : "bad";
-      result.textContent = lines.join("\n");
+      setStatus(
+        attested ? "ok" : "bad",
+        attested ? "Attested on-chain" : "No attestation found",
+        fields,
+      );
     } catch (err) {
-      badge.className = "bad";
-      badge.textContent = "⚠ Error";
-      result.className = "bad";
-      result.textContent = "Error: " + (err && err.message ? err.message : String(err));
+      setStatus("err", "Could not read on-chain state", [
+        ["error", err && err.message ? err.message : String(err)],
+      ]);
     } finally {
       btn.disabled = false;
     }
