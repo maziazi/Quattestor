@@ -188,27 +188,6 @@
     position: relative;
   }
   .video-inner video { width: 100%; height: 100%; object-fit: cover; display: block; }
-  .video-placeholder {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 14px;
-    color: #cfc4e6;
-  }
-  .play-ring {
-    width: 58px; height: 58px;
-    border-radius: 50%;
-    border: 1.5px solid rgba(165, 105, 234, 0.55);
-    display: flex; align-items: center; justify-content: center;
-  }
-  .play-ring::after {
-    content: "";
-    border-style: solid;
-    border-width: 9px 0 9px 14px;
-    border-color: transparent transparent transparent #cfc4e6;
-    margin-left: 3px;
-  }
-  .video-placeholder span { font-size: 0.85rem; color: #8f80ab; }
   .video-caption {
     text-align: center;
     font-size: 0.82rem;
@@ -500,11 +479,7 @@
   <section class="video-section">
     <div class="video-frame">
       <div class="video-inner">
-        <!-- Replace this placeholder with: <video controls src="demo.mp4"></video> -->
-        <div class="video-placeholder">
-          <div class="play-ring"></div>
-          <span>Demo recording coming shortly</span>
-        </div>
+        <video controls preload="metadata" src="demo.mp4"></video>
       </div>
     </div>
     <p class="video-caption">Live walkthrough: dual-signature withdrawal across Ethereum Sepolia, Base Sepolia, Solana devnet and Cardano preprod.</p>
