@@ -448,63 +448,9 @@
     font-size: 0.8rem;
   }
 
-  /* ---------- deck asset checklist ---------- */
-  .checklist { margin-bottom: 70px; }
-  .checklist-table {
-    border: 1px solid var(--border);
-    border-radius: 14px;
-    overflow: hidden;
-  }
-  .ci {
-    display: grid;
-    grid-template-columns: 56px 1fr auto;
-    gap: 14px;
-    align-items: start;
-    padding: 16px 18px;
-    border-bottom: 1px solid var(--border);
-  }
-  .ci:last-child { border-bottom: none; }
-  .ci.critical { background: rgba(226, 74, 74, 0.045); }
-  .ci-slide {
-    font-family: "Space Grotesk", sans-serif;
-    font-weight: 700;
-    font-size: 0.82rem;
-    color: var(--purple-deep);
-    padding-top: 2px;
-  }
-  .ci-body p {
-    margin: 0 0 4px;
-    font-size: 0.88rem;
-    color: var(--ink);
-    line-height: 1.5;
-  }
-  .ci-body .ci-type {
-    font-size: 0.72rem;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-    color: var(--muted);
-  }
-  .ci-tag {
-    font-size: 0.68rem;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    padding: 5px 10px;
-    border-radius: 100px;
-    white-space: nowrap;
-    align-self: start;
-  }
-  .ci-tag.must { background: var(--tint-2); color: var(--purple-deep); }
-  .ci-tag.nice { background: var(--tint); color: var(--ink-soft); border: 1px solid var(--border); }
-  .ci-tag.none { background: transparent; color: var(--muted); }
-  .ci-tag.critical { background: rgba(226, 74, 74, 0.12); color: var(--bad); }
-
   @media (max-width: 620px) {
     .stats { grid-template-columns: 1fr; }
     .linkgrid { grid-template-columns: 1fr; }
-    .ci { grid-template-columns: 1fr; gap: 6px; }
-    .ci-tag { justify-self: start; }
   }
 </style>
 </head>
@@ -622,103 +568,6 @@
     <a class="linkcard" href="https://solscan.io/account/8AS1r7wzeTamJwJ6R8P3hrySqbitHXEnkrwRwobykZcY?cluster=devnet" target="_blank" rel="noopener">Program on Solscan (Devnet) <span class="arrow">→</span></a>
     <a class="linkcard" href="https://preprod.cardanoscan.io/address/addr_test1wz29e97896tf5jzfqjc528m3xe09d4uk7hrvzph3y5zqntswtn35l" target="_blank" rel="noopener">Vault on Cardanoscan (Preprod) <span class="arrow">→</span></a>
   </div>
-
-  <section class="checklist">
-    <div class="section-head">
-      <h2>Pitch deck — visual asset checklist</h2>
-      <p>What the 15-slide deck still needs, slide by slide. Two items are hard blockers with no fallback; everything else is either an existing brand asset or a diagram built directly inside the slide tool — no stock photography anywhere in this deck.</p>
-    </div>
-    <div class="checklist-table">
-      <div class="ci critical">
-        <div class="ci-slide">S9</div>
-        <div class="ci-body">
-          <p class="ci-type">Screenshot</p>
-          <p>Real code screenshot — the <code>ChainAdapter</code> interface, or a terminal capture of a passing <code>forge test</code> run. Must be an actual capture, not a mockup.</p>
-        </div>
-        <span class="ci-tag critical">Critical — missing</span>
-      </div>
-      <div class="ci critical">
-        <div class="ci-slide">S12</div>
-        <div class="ci-body">
-          <p class="ci-type">Video (.mp4, embedded)</p>
-          <p>The only video in the deck. One continuous live-chain recording: withdrawal rejected with classical signature alone → succeeds with both signatures → live attack attempts (downgrade, replay, cross-context) rejected on the block explorer.</p>
-        </div>
-        <span class="ci-tag critical">Critical — missing</span>
-      </div>
-      <div class="ci">
-        <div class="ci-slide">S1 / S15</div>
-        <div class="ci-body">
-          <p class="ci-type">QR code + logos</p>
-          <p>QR code to the GitHub repo, plus TOKEN2049 Origins and NOWNodes logos. Repeated identically on the cover and closing slide.</p>
-        </div>
-        <span class="ci-tag must">Must-have</span>
-      </div>
-      <div class="ci">
-        <div class="ci-slide">S3</div>
-        <div class="ci-body">
-          <p class="ci-type">Diagram</p>
-          <p>3-stage horizontal flow — before outgoing tx, after outgoing tx, quantum computer exists — connected by arrows.</p>
-        </div>
-        <span class="ci-tag must">Must-have</span>
-      </div>
-      <div class="ci">
-        <div class="ci-slide">S7</div>
-        <div class="ci-body">
-          <p class="ci-type">Diagram</p>
-          <p>Static 3-box sequence: classical signature alone → REJECTED; + post-quantum signature → VERIFIED; PASSED → attestation issued.</p>
-        </div>
-        <span class="ci-tag must">Must-have</span>
-      </div>
-      <div class="ci">
-        <div class="ci-slide">S9</div>
-        <div class="ci-body">
-          <p class="ci-type">Diagram</p>
-          <p>Presentation-ready pipeline diagram: user → Verifier Service (⚠ flagged as single trust point) → liboqs check → signed attestation → smart contract/vault → NOWNodes broadcast.</p>
-        </div>
-        <span class="ci-tag must">Must-have</span>
-      </div>
-      <div class="ci">
-        <div class="ci-slide">S2</div>
-        <div class="ci-body">
-          <p class="ci-type">Illustration</p>
-          <p>Simple icon or mockup of a wallet-confirm screen (MetaMask/Phantom/Rabby-style) — not photorealistic.</p>
-        </div>
-        <span class="ci-tag nice">Nice-to-have</span>
-      </div>
-      <div class="ci">
-        <div class="ci-slide">S4</div>
-        <div class="ci-body">
-          <p class="ci-type">Illustration</p>
-          <p>Simple graphic reinforcing "broken key → bridge → funds lost."</p>
-        </div>
-        <span class="ci-tag nice">Nice-to-have</span>
-      </div>
-      <div class="ci">
-        <div class="ci-slide">S10</div>
-        <div class="ci-body">
-          <p class="ci-type">Logos/icons</p>
-          <p>Small logo row for the 5 chains (Ethereum, Base, Arbitrum, Solana, Osmosis) plus NOWNodes.</p>
-        </div>
-        <span class="ci-tag nice">Nice-to-have</span>
-      </div>
-      <div class="ci">
-        <div class="ci-slide">S11</div>
-        <div class="ci-body">
-          <p class="ci-type">Icons</p>
-          <p>Checkmark icons for the 3-point mainnet security checklist.</p>
-        </div>
-        <span class="ci-tag nice">Nice-to-have</span>
-      </div>
-      <div class="ci">
-        <div class="ci-slide">S5, S6, S8, S13, S14</div>
-        <div class="ci-body">
-          <p class="ci-type">No asset needed</p>
-          <p>Carried entirely by tables, stat callouts, and bold text — nothing to produce or source.</p>
-        </div>
-        <span class="ci-tag none">Text-only</span>
-      </div>
-    </div>
-  </section>
 
   <footer>Built for the TOKEN2049 Origins × NOWNodes Hackathon, October 2026</footer>
 </div>
